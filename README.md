@@ -33,3 +33,13 @@ Utilizaremos:
 ============================================
 
 Obs.: No repositório vai alguns arquivos referentes a configuração do projeto no sublime, configure os caminhos de acordo com o seu computador e de quebra utilize o build system que eu criei.
+
+
+Para backup
+
+$ pg_dump ufersa_vdb_2 > nome_do_backup
+
+
+Para restaurar
+
+$ psql ufersa_vdb_2 < nome_do_backup

@@ -291,49 +291,49 @@ FOR EACH ROW EXECUTE PROCEDURE slotReg();
 
 -- BIKE STATION
 
--- SELECT createBikeStation('Aliada','xEqGAG',-5.206798,-37.323969);
--- SELECT createBikeStation('Olimpia','hbHevxu',-5.206798,-37.323969);
--- SELECT createBikeStation('Sang','hdCdj0ae',-5.206798,-37.323969);
--- SELECT createBikeStation('Milda','e8FADM4nzxf',-5.206798,-37.323969);
+SELECT createBikeStation('Aliada','xEqGAG',-5.206798,-37.323969);
+SELECT createBikeStation('Olimpia','hbHevxu',-5.206798,-37.323969);
+SELECT createBikeStation('Sang','hdCdj0ae',-5.206798,-37.323969);
+SELECT createBikeStation('Milda','e8FADM4nzxf',-5.206798,-37.323969);
 
--- SELECT changeStationState(1);
--- SELECT changeStationState(2);
--- SELECT changeStationState(3);
--- SELECT changeStationState(4);
+SELECT changeStationState(1);
+SELECT changeStationState(2);
+SELECT changeStationState(3);
+SELECT changeStationState(4);
 
--- SELECT assignslot(1);
--- SELECT assignslot(1);
--- SELECT assignslot(1);
--- SELECT assignslot(1);
--- SELECT assignslot(2);
--- SELECT assignslot(2);
--- SELECT assignslot(2);
--- SELECT assignslot(2);
--- SELECT assignslot(3);
--- SELECT assignslot(3);
--- SELECT assignslot(3);
--- SELECT assignslot(3);
--- SELECT assignslot(4);
--- SELECT assignslot(4);
--- SELECT assignslot(4);
--- SELECT assignslot(4);
+SELECT assignslot(1);
+SELECT assignslot(1);
+SELECT assignslot(1);
+SELECT assignslot(1);
+SELECT assignslot(2);
+SELECT assignslot(2);
+SELECT assignslot(2);
+SELECT assignslot(2);
+SELECT assignslot(3);
+SELECT assignslot(3);
+SELECT assignslot(3);
+SELECT assignslot(3);
+SELECT assignslot(4);
+SELECT assignslot(4);
+SELECT assignslot(4);
+SELECT assignslot(4);
 
--- SELECT changeSlotState(1,1);
--- SELECT changeSlotState(1,2);
--- SELECT changeSlotState(1,3);
--- SELECT changeSlotState(1,4);
+SELECT changeSlotState(1,1);
+SELECT changeSlotState(1,2);
+SELECT changeSlotState(1,3);
+SELECT changeSlotState(1,4);
 
--- SELECT changeSlotState(2,1);
--- SELECT changeSlotState(2,2);
--- SELECT changeSlotState(2,3);
--- SELECT changeSlotState(2,4);
+SELECT changeSlotState(2,1);
+SELECT changeSlotState(2,2);
+SELECT changeSlotState(2,3);
+SELECT changeSlotState(2,4);
 
--- SELECT changeSlotState(3,1);
--- SELECT changeSlotState(3,2);
--- SELECT changeSlotState(3,3);
--- SELECT changeSlotState(3,4);
+SELECT changeSlotState(3,1);
+SELECT changeSlotState(3,2);
+SELECT changeSlotState(3,3);
+SELECT changeSlotState(3,4);
 
--- SELECT changeSlotState(4,1);
--- SELECT changeSlotState(4,2);
--- SELECT changeSlotState(4,3);
--- SELECT changeSlotState(4,4);
+SELECT changeSlotState(4,1);
+SELECT changeSlotState(4,2);
+SELECT changeSlotState(4,3);
+SELECT changeSlotState(4,4);

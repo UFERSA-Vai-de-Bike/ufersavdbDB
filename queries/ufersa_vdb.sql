@@ -21,3 +21,15 @@ CREATE DATABASE ufersa_vdb_1;*/
 -- Fecha os dois primeiros
 -- SELECT close_vdb_log(1,1,2,1);
 -- SELECT close_vdb_log(2,3,1,1);
+
+--TRANSAÇÃO A
+begin;
+SELECT open_vdb_log(1,1,1,1);
+SELECT * FROM getBike(1);
+rollback;
+  
+  
+--TRANSAÇÃO B
+begin;
+SELECT * FROM getBike(1);
+commit;
