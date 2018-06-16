@@ -18,9 +18,10 @@ CREATE TABLE info_client (
 	email VARCHAR(50) NOT NULL,
 	phone VARCHAR(15) NOT NULL,
 	profession VARCHAR(30),
-	sex CHAR,
+	sex sex_tag DEFAULT 'U',
 	birthDate DATE
 );
+
 
 -- Tabela de histórico de cliente
 DROP TABLE IF EXISTS client_history CASCADE;
@@ -29,7 +30,7 @@ CREATE TABLE client_history (
 	idCli INT REFERENCES client_vdb(idCli) ON DELETE CASCADE,
 	regDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	info VARCHAR(200),
-	label CHAR DEFAULT 'U' -- U - UNKNOW / D - DADOS / L - LOG DE DEVOLUÇÃO/EMPRÉSTIMO
+	label label_tag DEFAULT 'U' -- U - UNKNOW / D - DADOS / L - LOG DE DEVOLUÇÃO/EMPRÉSTIMO
 );
 
 

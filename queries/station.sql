@@ -27,7 +27,7 @@ CREATE TABLE station_history (
 	idStation INT REFERENCES bike_station(idStation) ON DELETE CASCADE,
 	regDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	info VARCHAR(200),
-	label CHAR DEFAULT 'U' -- U - UNKNOW / D - DADOS / L - DEV-EMP
+	label label_tag DEFAULT 'U' -- U - UNKNOW / D - DADOS / L - DEV-EMP
 );
 
 -- FUNCTIONS

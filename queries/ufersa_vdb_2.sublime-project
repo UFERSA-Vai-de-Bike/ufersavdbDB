@@ -1,0 +1,25 @@
+{
+    "folders":
+    [
+        {
+            "follow_symlinks": true,
+            "path": "/home/silva/git/ufersavdbDB"
+        }
+        
+    ],
+    "build_systems":
+    [
+    	{
+    		"name": "postgres_ufersa_vdb_2_text",
+    		"cmd": ["psql", "-d", "ufersa_vdb_2","-f", "$file", "-o", "/home/silva/git/ufersavdbDB/results.txt"],
+    		"working_dir" : "/home/silva/git/ufersavdbDB",
+    		"selector": "source.postgresql"
+		},
+		{
+    		"name": "postgres_ufersa_vdb_2",
+    		"cmd": ["psql", "-d", "ufersa_vdb_2","-f", "$file"],
+    		"working_dir" : "/home/silva/git/ufersavdbDB",
+    		"selector": "source.postgresql"
+		}
+    ]
+}

@@ -21,7 +21,7 @@ CREATE TABLE bike_history (
 	idBike INT REFERENCES bike(idBike) ON DELETE CASCADE,
 	regDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 	info VARCHAR(200),
-	label CHAR DEFAULT 'U'
+	label label_tag DEFAULT 'U'
 );
 
 
