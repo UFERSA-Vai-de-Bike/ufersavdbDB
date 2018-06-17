@@ -19,8 +19,8 @@ Utilizaremos:
  Dentro da pasta 'queries' se encontram os arquivos que instanciam as tabelas utilizado pelo sistema.
 
  O banco utilizado tem como nome: ufersa_vdb_2
-
- Não precisa ser esse nome e eu posso mostrar como alterar o sistema para trabalhar apontando pro banco que você determinar. Apenas as tabelas, funções e trigger's que importam.
+ Não precisa ser este nome, mas atente-se se a API sabe o nome que foi determinado.
+ Apenas as tabelas, funções e trigger's que importam.
 
  No final de cada arquivo tem um povoamento de tabelas. Você decide utilizar ou não.
 

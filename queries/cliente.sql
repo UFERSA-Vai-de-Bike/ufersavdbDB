@@ -329,14 +329,14 @@ FOR EACH ROW EXECUTE PROCEDURE client_sd_reg();*/
 
 -- SELECT createClient(role,name,password);
 
-SELECT createClient(0,'r2','anarquia88');
-SELECT createClient(0,'unhearty','anolandi55');
-SELECT createClient(2,'kingrow','camilaqjin99');
-SELECT createClient(3,'dipteran','siqueira73');
-SELECT createClient(2,'pauxi','allefcurin43');
-SELECT createClient(3,'underaid','killingin88');
-SELECT createClient(0,'cardiophrenia','coracao22');
-SELECT createClient(1,'armaria','qqussi44');
+-- SELECT createClient(0,'r2','anarquia88');
+-- SELECT createClient(0,'unhearty','anolandi55');
+-- SELECT createClient(2,'kingrow','camilaqjin99');
+-- SELECT createClient(3,'dipteran','siqueira73');
+-- SELECT createClient(2,'pauxi','allefcurin43');
+-- SELECT createClient(3,'underaid','killingin88');
+-- SELECT createClient(0,'cardiophrenia','coracao22');
+-- SELECT createClient(1,'armaria','qqussi44');
 
 -- SELECT * FROM getClients();
 -- SELECT * FROM getClient(idCli);
@@ -355,23 +355,23 @@ SELECT createClient(1,'armaria','qqussi44');
 -- SELECT * FROM getInfosCli();
 -- SELECT * FROM getInfoCli(idCli);
 
-SELECT upd_info_cli(1,'Filonai Genot','fulc@treste.com','66665555','ouvinte','M','02-05-1991');
-SELECT upd_info_cli(2,'Finn Genot','finnlc@teste.com','66665555','heroi','M','02-05-1991');
-SELECT upd_info_cli(3,'Fanho Lance','fanho@teste.com','65467855','outsider','M','02-07-1999');
-SELECT upd_info_cli(4,'Arere Umoki','aretw0@teste2.com','99768684','insider','M','25-05-1994');
-SELECT upd_info_cli(5,'Blossom Mahaley','koil@cabot.co.uk','30777804','toastmastery','M','2012-05-26');
-SELECT upd_info_cli(6,'Debbie Willhelm','aldermanlike@histamine.org','68119266','thrips','F','2016-06-17');
-SELECT upd_info_cli(7,'Shalanda Battenhouse','gastroscope@unenkindled.net','71110539','acuesthesia','F','2016-04-18');
-SELECT upd_info_cli(8,'Cristine Marzinske','pharyngopneustal@cleavability.co.uk','86460736','episiotomy','M','2016-12-27');
+-- SELECT upd_info_cli(1,'Filonai Genot','fulc@treste.com','66665555','ouvinte','M','02-05-1991');
+-- SELECT upd_info_cli(2,'Finn Genot','finnlc@teste.com','66665555','heroi','M','02-05-1991');
+-- SELECT upd_info_cli(3,'Fanho Lance','fanho@teste.com','65467855','outsider','M','02-07-1999');
+-- SELECT upd_info_cli(4,'Arere Umoki','aretw0@teste2.com','99768684','insider','M','25-05-1994');
+-- SELECT upd_info_cli(5,'Blossom Mahaley','koil@cabot.co.uk','30777804','toastmastery','M','2012-05-26');
+-- SELECT upd_info_cli(6,'Debbie Willhelm','aldermanlike@histamine.org','68119266','thrips','F','2016-06-17');
+-- SELECT upd_info_cli(7,'Shalanda Battenhouse','gastroscope@unenkindled.net','71110539','acuesthesia','F','2016-04-18');
+-- -- SELECT upd_info_cli(8,'Cristine Marzinske','pharyngopneustal@cleavability.co.uk','86460736','episiotomy','M','2016-12-27');
 
-SELECT changeSit(1);
-SELECT changeSit(2);
-SELECT changeSit(3);
-SELECT changeSit(4);
-SELECT changeSit(5);
-SELECT changeSit(6);
-SELECT changeSit(7);
-SELECT changeSit(8);
+-- SELECT changeSit(1);
+-- SELECT changeSit(2);
+-- SELECT changeSit(3);
+-- SELECT changeSit(4);
+-- SELECT changeSit(5);
+-- SELECT changeSit(6);
+-- SELECT changeSit(7);
+-- SELECT changeSit(8);
 
 -- SELECT upd_info_cli(1,'Arthur Aleksandro','aretw0@hotmail.com','99768606','desenvoledor','M','25-05-1994');
 

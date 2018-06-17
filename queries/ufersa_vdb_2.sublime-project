@@ -20,6 +20,30 @@
     		"cmd": ["psql", "-d", "ufersa_vdb_2","-f", "$file"],
     		"working_dir" : "/home/silva/git/ufersavdbDB",
     		"selector": "source.postgresql"
-		}
+		},
+        {
+            "name": "postgres_ufersa_vdb_2_try",
+            // "cmd": ["psql", "--help"],
+            "cmd": ["psql", "-d", "ufersa_vdb_2", "-U", "aretw0", "-f", "$file"],
+            "working_dir" : "/home/silva/git/ufersavdbDB",
+            "selector": "source.postgresql"
+        },
+        {
+            "name": "postgres_ufersa_vdb_2_t0",
+            // "cmd": ["psql", "--help"],
+            "cmd": ["psql", "-d", "ufersa_vdb_2", "-U", "teste0_bd2", "-f", "$file"],
+            "working_dir" : "/home/silva/git/ufersavdbDB",
+            "selector": "source.postgresql"
+        }
     ]
 }
+
+/*
+
+aretw0
+silva
+ufersa_vdb
+postgres
+user_ufvdb_2
+
+*/

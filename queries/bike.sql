@@ -271,23 +271,23 @@ FOR EACH ROW EXECUTE PROCEDURE bikeReg();
 
 -- SELECT createBike(name);
 
-SELECT createBike('Eugena');
-SELECT createBike('Leanne');
-SELECT createBike('Tawana');
-SELECT createBike('Bernardina');
-SELECT createBike('Loraine');
-SELECT createBike('Robena');
-SELECT createBike('Zandra');
-SELECT createBike('Jenise');
+-- SELECT createBike('Eugena');
+-- SELECT createBike('Leanne');
+-- SELECT createBike('Tawana');
+-- SELECT createBike('Bernardina');
+-- SELECT createBike('Loraine');
+-- SELECT createBike('Robena');
+-- SELECT createBike('Zandra');
+-- SELECT createBike('Jenise');
 
-SELECT upd_bikeSt(1,1,1);
-SELECT upd_bikeSt(2,1,2);
-SELECT upd_bikeSt(3,2,1);
-SELECT upd_bikeSt(4,2,2);
-SELECT upd_bikeSt(5,3,1);
-SELECT upd_bikeSt(6,3,2);
-SELECT upd_bikeSt(7,4,1);
-SELECT upd_bikeSt(8,4,2);
+-- SELECT upd_bikeSt(1,1,1);
+-- SELECT upd_bikeSt(2,1,2);
+-- SELECT upd_bikeSt(3,2,1);
+-- SELECT upd_bikeSt(4,2,2);
+-- SELECT upd_bikeSt(5,3,1);
+-- SELECT upd_bikeSt(6,3,2);
+-- SELECT upd_bikeSt(7,4,1);
+-- SELECT upd_bikeSt(8,4,2);
 
 
 -- SELECT * FROM getBike(idBike);

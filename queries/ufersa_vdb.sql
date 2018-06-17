@@ -4,8 +4,8 @@ SENHA: bikesharing18
 */
 
 -- CRIAÇÃO DO BANCO DE DADOS
-/*DROP DATABASE IF EXISTS ufersa_vdb_1;
-CREATE DATABASE ufersa_vdb_1;*/
+/*DROP DATABASE IF EXISTS ufersa_vdb_2;
+CREATE DATABASE ufersa_vdb_2;*/
 
 
 
@@ -22,14 +22,34 @@ CREATE DATABASE ufersa_vdb_1;*/
 -- SELECT close_vdb_log(1,1,2,1);
 -- SELECT close_vdb_log(2,3,1,1);
 
---TRANSAÇÃO A
-begin;
+
+
+
+-- TRANSAÇÃO A
+-- begin;
+-- SELECT * FROM getBike(1);
+-- SELECT open_vdb_log(1,1,1,1);
+-- rollback;
+  
+  
+-- TRANSAÇÃO B
+-- begin;
+-- SELECT open_vdb_log(1,1,1,1);
+-- SELECT * FROM getBike(1);
+-- commit;
+
+
+-- TRANSAÇÃO A
+/*begin;
 SELECT open_vdb_log(1,1,1,1);
 SELECT * FROM getBike(1);
-rollback;
+rollback;*/
   
   
---TRANSAÇÃO B
-begin;
+-- TRANSAÇÃO B
+/*begin;
 SELECT * FROM getBike(1);
-commit;
+commit;*/
+
+-- SELECT * FROM pg_user;
+
