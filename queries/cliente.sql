@@ -1,3 +1,14 @@
+DROP TYPE IF EXISTS info_client CASCADE;
+CREATE TYPE info_client AS (
+	fullName VARCHAR(80),
+	email VARCHAR(50),
+	phone VARCHAR(15),
+	profession VARCHAR(30),
+	sex sex_tag, --DEFAULT 'U',
+	birthDate DATE	
+);
+
+
 -- Tabela dos clientes
 DROP TABLE IF EXISTS client_vdb CASCADE;
 CREATE TABLE client_vdb (
@@ -7,12 +18,13 @@ CREATE TABLE client_vdb (
 	password VARCHAR(150) NOT NULL,
 	onBike BOOLEAN DEFAULT FALSE, -- ONBIKE = ESTÁ OU NÃO COM UMA BIKE
 	state BOOLEAN DEFAULT FALSE, -- SITUATION = PODE OU NAO PEGAR BIKES
-	regDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	regDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	info info_client
 );
 
 -- Tabela de informaçãoes do clientes
-DROP TABLE IF EXISTS info_client CASCADE;
-CREATE TABLE info_client (
+-- DROP TABLE IF EXISTS info_client CASCADE;
+/*CREATE TABLE info_client (
 	idCli INT REFERENCES client_vdb(idCli) ON DELETE CASCADE,
 	fullName VARCHAR(80) NOT NULL,
 	email VARCHAR(50) NOT NULL,
@@ -20,9 +32,9 @@ CREATE TABLE info_client (
 	profession VARCHAR(30),
 	sex sex_tag DEFAULT 'U',
 	birthDate DATE
-);
+);*/
 
-
+-- TODO: BDOR
 -- Tabela de histórico de cliente
 DROP TABLE IF EXISTS client_history CASCADE;
 CREATE TABLE client_history (
@@ -36,16 +48,16 @@ CREATE TABLE client_history (
 
 -- functions
 
-DROP FUNCTION IF EXISTS createClient(client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE) CASCADE;
-CREATE OR REPLACE FUNCTION createClient(client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE)  -- nome da função
+DROP FUNCTION IF EXISTS createClient(client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.info%TYPE) CASCADE;
+CREATE OR REPLACE FUNCTION createClient(client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.info%TYPE)  -- nome da função
 RETURNS VOID AS $$
 BEGIN
-	INSERT INTO client_vdb (role,username,password) VALUES ($1,$2,$3);
+	INSERT INTO client_vdb (role,username,password,info) VALUES ($1,$2,$3,$4);
 END;
 $$ LANGUAGE plpgsql; --linguagem SQL
 
-DROP FUNCTION IF EXISTS upd_cli(client_vdb.idCli%TYPE,client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.state%TYPE) CASCADE;
-CREATE OR REPLACE FUNCTION upd_cli(client_vdb.idCli%TYPE, client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.state%TYPE)
+-- DROP FUNCTION IF EXISTS upd_cli(client_vdb.idCli%TYPE,client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.state%TYPE) CASCADE;
+/*CREATE OR REPLACE FUNCTION upd_cli(client_vdb.idCli%TYPE, client_vdb.role%TYPE,client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.state%TYPE)
 RETURNS VOID AS $$
 BEGIN
 	UPDATE client_vdb SET
@@ -55,13 +67,13 @@ BEGIN
 		state = $5
 	WHERE idCli = $1;
 END;
-$$ LANGUAGE plpgsql;	
+$$ LANGUAGE plpgsql;	*/
 
 DROP FUNCTION IF EXISTS getClients() CASCADE;
 CREATE OR REPLACE FUNCTION getClients()
-RETURNS TABLE(idCli client_vdb.idCli%TYPE,role client_vdb.role%TYPE,username client_vdb.username%TYPE,onBike client_vdb.onBike%TYPE, state client_vdb.state%TYPE) AS $$
+RETURNS TABLE(idCli client_vdb.idCli%TYPE,role client_vdb.role%TYPE,username client_vdb.username%TYPE,onBike client_vdb.onBike%TYPE, state client_vdb.state%TYPE,info client_vdb.info%TYPE) AS $$
 BEGIN
-	RETURN QUERY SELECT cli.idCli,cli.role,cli.username,cli.onBike,cli.state FROM client_vdb as cli;
+	RETURN QUERY SELECT cli.idCli,cli.role,cli.username,cli.onBike,cli.state, (cli.info) FROM client_vdb as cli;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -94,7 +106,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
+-- todo não retornar a senha
 DROP FUNCTION IF EXISTS getClientByUserName(client_vdb.name%TYPE) CASCADE;
 CREATE OR REPLACE FUNCTION getClientByUserName(client_vdb.username%TYPE)
 RETURNS SETOF client_vdb AS $$
@@ -103,6 +115,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- todo não retornar a senha
 DROP FUNCTION IF EXISTS getClientLogin(client_vdb.username%TYPE,client_vdb.password%TYPE) CASCADE;
 CREATE OR REPLACE FUNCTION getClientLogin(client_vdb.username%TYPE,client_vdb.password%TYPE)
 RETURNS SETOF client_vdb AS $$
@@ -111,15 +124,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP FUNCTION IF EXISTS signUpClient(client_vdb.username%TYPE,client_vdb.password%TYPE,info_client.fullName%TYPE,info_client.email%TYPE,info_client.phone%TYPE,info_client.profession%TYPE,info_client.sex%TYPE,info_client.birthDate%TYPE) CASCADE;
-CREATE OR REPLACE FUNCTION signUpClient(client_vdb.username%TYPE,client_vdb.password%TYPE,info_client.fullName%TYPE,info_client.email%TYPE,info_client.phone%TYPE,info_client.profession%TYPE,info_client.sex%TYPE,info_client.birthDate%TYPE)  -- nome da função
+DROP FUNCTION IF EXISTS signUpClient(client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.info%TYPE) CASCADE;
+CREATE OR REPLACE FUNCTION signUpClient(client_vdb.username%TYPE,client_vdb.password%TYPE,client_vdb.info%TYPE)  -- nome da função
 RETURNS VOID AS $$
 DECLARE
 	id_temp client_vdb.idCli%TYPE;
 BEGIN
-	PERFORM createClient(0,$1,$2);
-	SELECT idCli INTO id_temp FROM client_vdb WHERE username = $1;
-	PERFORM upd_info_cli(id_temp,$3,$4,$5,$6,$7,$8);
+	PERFORM createClient(0,$1,$2,$3);
+	/*SELECT idCli INTO id_temp FROM client_vdb WHERE username = $1;
+	PERFORM upd_info_cli(id_temp,$3,$4,$5,$6,$7,$8);*/
 END;
 $$ LANGUAGE plpgsql; --linguagem SQL
 
@@ -159,41 +172,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;	
 
-DROP FUNCTION IF EXISTS upd_info_cli(info_client.idCli%TYPE,info_client.fullName%TYPE,info_client.email%TYPE,info_client.phone%TYPE,info_client.profession%TYPE,info_client.sex%TYPE,info_client.birthDate%TYPE) CASCADE;
-CREATE OR REPLACE FUNCTION upd_info_cli(info_client.idCli%TYPE,info_client.fullName%TYPE,info_client.email%TYPE,info_client.phone%TYPE,info_client.profession%TYPE,info_client.sex%TYPE,info_client.birthDate%TYPE)
+DROP FUNCTION IF EXISTS upd_info_cli(client_vdb.idcli%TYPE,client_vdb.info%TYPE) CASCADE;
+CREATE OR REPLACE FUNCTION upd_info_cli(client_vdb.idcli%TYPE,client_vdb.info%TYPE)
 RETURNS VOID AS $$
-DECLARE
-	temp_row info_client%ROWTYPE;
 BEGIN
-	SELECT * INTO temp_row FROM info_client WHERE idCli = $1;
-	IF temp_row IS NULL THEN
-		INSERT INTO info_client values ($1,$2,$3,$4,$5,$6,$7);
-	ELSE
-		UPDATE info_client SET
-			fullName = $2,
-			email = $3,
-			phone = $4,
-			profession = $5,
-			sex = $6,
-			birthDate = $7
-		WHERE idCli = $1;
-	END IF;
+	UPDATE client_vdb SET
+			info = $2
+	WHERE idCli = $1;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP FUNCTION IF EXISTS getInfosCli() CASCADE;
 CREATE OR REPLACE FUNCTION getInfosCli()
-RETURNS SETOF info_client AS $$
+RETURNS SETOF client_vdb.info%TYPE AS $$
 BEGIN
-	RETURN QUERY SELECT * FROM info_client;
+	RETURN QUERY SELECT (info).* FROM client_vdb;
 END;
 $$ LANGUAGE plpgsql;
 
 DROP FUNCTION IF EXISTS getInfoCli(client_vdb.idCli%TYPE) CASCADE;
 CREATE OR REPLACE FUNCTION getInfoCli(client_vdb.idCli%TYPE)
-RETURNS SETOF info_client AS $$
+RETURNS SETOF client_vdb.info%TYPE AS $$
 BEGIN
-	RETURN QUERY SELECT * FROM info_client WHERE idCli = $1;
+	RETURN QUERY SELECT (info).* FROM client_vdb WHERE idCli = $1;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -275,6 +276,10 @@ BEGIN
 		IF (OLD.username <> NEW.username) AND (OLD.username IS NOT NULL) AND (NEW.username IS NOT NULL) THEN
 			PERFORM add_history_cli(OLD.idCli,'Acesso - nome de usuário alterado de ' || OLD.username || ' para ' || NEW.username,'D');
 		END IF;
+		-- TODO testar
+		IF (OLD.info <> NEW.info) THEN
+			PERFORM add_history_cli(OLD.idCli,'Atualizou as informações de seu perfil','D');
+		END IF;
 		RETURN NEW;
 	END IF;
 	RETURN NULL;
@@ -286,7 +291,7 @@ CREATE TRIGGER client_log
 AFTER INSERT OR UPDATE ON client_vdb
 FOR EACH ROW EXECUTE PROCEDURE clientReg();
 
-DROP FUNCTION IF EXISTS infoRegCli() CASCADE;
+/*DROP FUNCTION IF EXISTS infoRegCli() CASCADE;
 CREATE OR REPLACE FUNCTION infoRegCli() -- nome da função
 RETURNS TRIGGER AS $infoRegCli$
 BEGIN
@@ -301,12 +306,11 @@ $infoRegCli$ LANGUAGE PLPGSQL; --linguagem PLPGSQL
 
 DROP TRIGGER IF EXISTS info_log ON info_client CASCADE;
 CREATE TRIGGER info_log_cli AFTER -- BEFORE ou AFTER
-INSERT OR UPDATE ON info_client -- exclua os eventos que você não quer
-FOR EACH ROW EXECUTE PROCEDURE infoRegCli();
+INSERT OR UPDATE OF info ON client_vdb -- exclua os eventos que você não quer
+FOR EACH ROW EXECUTE PROCEDURE infoRegCli();*/
 -- STATEMENT ou ROW
 
 /*
-
 TRIGGER FUTURO PARA UTILIZAÇÃO DAS SHADOWS DAS ENTIDADES
 
 DROP FUNCTION IF EXISTS client_sd_reg();

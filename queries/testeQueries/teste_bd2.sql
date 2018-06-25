@@ -1,13 +1,28 @@
 -- TESTE PARA USER TESTE0_BD2 e TESTE_BD2 executar toda vez que dropar algo
 
--- GRANT select ON ALL TABLES IN SCHEMA public TO teste_bd2;
+-- revoke ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public from teste0_bd2;
+-- revoke ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public from teste_bd2;
+
+-- revoke ALL PRIVILEGES ON ALL TABLES IN SCHEMA public from teste0_bd2;
+-- revoke ALL PRIVILEGES ON ALL TABLES IN SCHEMA public from teste_bd2;
+
+-- revoke ALL PRIVILEGES ON DATABASE ufersa_vdb_2 from teste0_bd2;
+-- revoke create,connect ON DATABASE ufersa_vdb_2 from teste_bd2;
 
 -- GRANT insert,update,select ON ALL TABLES IN SCHEMA public TO teste0_bd2;
 
 -- GRANT usage ON ALL SEQUENCES IN SCHEMA public TO teste0_bd2;
 
+-- GRANT select ON ALL TABLES IN SCHEMA public TO teste_bd2;
+
+-- GRANT connect ON DATABASE ufersa_vdb_2 TO teste_bd2;
+
+-- GRANT connect ON DATABASE ufersa_vdb_2 TO teste0_bd2;
+
+
 
 -- abaixo o teste0_bd2 deve executar tranquilamente e o outro não
+
 
 -- SELECT createBikeStation('Aliada','xEqGAG',-5.206798,-37.323969);
 -- SELECT createBikeStation('Olimpia','hbHevxu',-5.206798,-37.323969);
@@ -58,9 +73,9 @@
 
 
 
-
 -- bikes
 
+-- SELECT upd_bikeSt(8,4,2);
 -- SELECT createBike('Eugena');
 -- SELECT createBike('Leanne');
 -- SELECT createBike('Tawana');
@@ -77,7 +92,6 @@
 -- SELECT upd_bikeSt(5,3,1);
 -- SELECT upd_bikeSt(6,3,2);
 -- SELECT upd_bikeSt(7,4,1);
--- SELECT upd_bikeSt(8,4,2);
 
 
 
@@ -116,3 +130,5 @@
 -- abaixo o teste_bd2 deve executar tranquilamente (exemplo)
 
 -- SELECT getHistsStation('');
+
+-- select getStation(1);

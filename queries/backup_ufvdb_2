@@ -1,0 +1,2426 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 9.5.13
+-- Dumped by pg_dump version 9.5.13
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+
+
+--
+-- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+
+
+--
+-- Name: dup_result; Type: TYPE; Schema: public; Owner: silva
+--
+
+CREATE TYPE public.dup_result AS (
+	total bigint,
+	now bigint
+);
+
+
+ALTER TYPE public.dup_result OWNER TO silva;
+
+--
+-- Name: dup_resultst; Type: TYPE; Schema: public; Owner: silva
+--
+
+CREATE TYPE public.dup_resultst AS (
+	totalout bigint,
+	totalin bigint,
+	now bigint
+);
+
+
+ALTER TYPE public.dup_resultst OWNER TO silva;
+
+--
+-- Name: label_tag; Type: DOMAIN; Schema: public; Owner: silva
+--
+
+CREATE DOMAIN public.label_tag AS character(1)
+	CONSTRAINT label_tag_check CHECK (((VALUE = 'D'::bpchar) OR (VALUE = 'L'::bpchar) OR (VALUE = 'U'::bpchar)));
+
+
+ALTER DOMAIN public.label_tag OWNER TO silva;
+
+--
+-- Name: sex_tag; Type: DOMAIN; Schema: public; Owner: silva
+--
+
+CREATE DOMAIN public.sex_tag AS character(1)
+	CONSTRAINT sex_tag_check CHECK (((VALUE = 'M'::bpchar) OR (VALUE = 'F'::bpchar) OR (VALUE = 'U'::bpchar)));
+
+
+ALTER DOMAIN public.sex_tag OWNER TO silva;
+
+--
+-- Name: add_history_bike(integer, character varying, public.label_tag); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.add_history_bike(integer, character varying, public.label_tag) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	INSERT INTO bike_history (idBike, info, label) VALUES ($1, $2, $3);
+END;
+$_$;
+
+
+ALTER FUNCTION public.add_history_bike(integer, character varying, public.label_tag) OWNER TO silva;
+
+--
+-- Name: add_history_cli(integer, character varying, character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.add_history_cli(integer, character varying, character) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	INSERT INTO client_history (idCli, info, label) VALUES ($1, $2, $3);
+END;
+$_$;
+
+
+ALTER FUNCTION public.add_history_cli(integer, character varying, character) OWNER TO silva;
+
+--
+-- Name: add_history_station(integer, character varying, character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.add_history_station(integer, character varying, character) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	INSERT INTO station_history (idStation, info,label) VALUES ($1, $2, $3);
+END;
+$_$;
+
+
+ALTER FUNCTION public.add_history_station(integer, character varying, character) OWNER TO silva;
+
+--
+-- Name: assignslot(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.assignslot(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	slots_temp INT;
+BEGIN
+	SELECT COUNT(*) INTO slots_temp FROM station_slot WHERE idStation = $1;
+	IF (slots_temp = 0) THEN
+		INSERT INTO station_slot (idStation, slot) VALUES ($1,1);
+	ELSE
+		INSERT INTO station_slot (idStation, slot) VALUES ($1,slots_temp + 1);
+	END IF;
+END;
+$_$;
+
+
+ALTER FUNCTION public.assignslot(integer) OWNER TO silva;
+
+--
+-- Name: bikereg(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.bikereg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE 
+	namest_old bike_station.name%TYPE;
+	namest_new bike_station.name%TYPE;
+BEGIN
+	IF (TG_OP = 'INSERT') THEN
+		PERFORM add_history_bike(NEW.idBike,'Its Alive! - Bicicleta criada','D'); --ação
+		RETURN NEW;
+	ELSEIF (TG_OP = 'UPDATE') THEN
+		SELECT name INTO namest_old FROM bike_station WHERE idStation = OLD.idStation;
+		SELECT name INTO namest_new FROM bike_station WHERE idStation = NEW.idStation;
+		IF (OLD.idStation is NULL) AND (NEW.idStation IS NOT NULL) THEN
+			PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Vinculada ao sistema na estação ' || namest_new,'L');
+			PERFORM add_history_station(NEW.idStation,'Vai de Bike - Bicicleta ' || OLD.name ||' vinculada ao sistema no ' || NEW.slot || 'º slot','L');
+		ELSEIF (OLD.idStation is NOT NULL) AND (NEW.idStation is NULL) THEN
+			IF (OLD.onRide = FALSE) AND (NEW.onRide IS NULL) AND (NEW.slot IS NULL) THEN
+				PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Desvinculada do sistema no '|| OLD.slot || 'º slot da estação ' || namest_old,'L');
+				PERFORM add_history_station(OLD.idStation,'Vai de Bike - Bicicleta ' || OLD.name ||' desvinculada do sistema no ' || OLD.slot || 'º slot','L');
+			ELSEIF (OLD.onRide) AND (NEW.onRide IS NULL) AND (NEW.slot IS NULL) THEN
+				PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Desvinculada do sistema após sair do '|| OLD.slot ||'º slot da estação ' || namest_old,'L');
+				PERFORM add_history_station(OLD.idStation,'Vai de Bike - Bicicleta ' || OLD.name ||' desvinculada do sistema após sair do ' || OLD.slot || 'º slot','L');
+ 			END IF;
+ 		ELSEIF OLD.idStation <> NEW.idStation THEN
+			PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Mudança do '|| OLD.slot||'º da estação ' || namest_old ||' para '|| NEW.slot||'º slot da estação ' || namest_new,'L');
+		END IF;
+		IF (OLD.state <> NEW.state) AND (NEW.state IS NOT NULL) THEN
+			IF (NEW.state) THEN
+				PERFORM add_history_bike(OLD.idBike,'Situação - Ativa','D');
+			ELSE
+				PERFORM add_history_bike(OLD.idBike, 'Situação - Inativa','D');
+			END IF;
+		END IF;
+		IF (OLD.name <> NEW.name) AND (OLD.name IS NOT NULL) AND (NEW.name IS NOT NULL) THEN
+			PERFORM add_history_bike(OLD.idBike,'Informações - Nome alterado de ' || OLD.name || ' para ' || NEW.name,'D');
+		END IF;
+		RETURN NEW;
+	END IF;
+END;
+$$;
+
+
+ALTER FUNCTION public.bikereg() OWNER TO silva;
+
+--
+-- Name: changebikestate(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.changebikestate(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    UPDATE bike SET
+    	state = (state = FALSE)
+    WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.changebikestate(integer) OWNER TO silva;
+
+--
+-- Name: changeonbike(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.changeonbike(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    UPDATE client_vdb SET
+    	onBike = (onBike = FALSE)
+    WHERE idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.changeonbike(integer) OWNER TO silva;
+
+--
+-- Name: changesit(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.changesit(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    UPDATE client_vdb SET
+    	state = (state = FALSE)
+    WHERE idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.changesit(integer) OWNER TO silva;
+
+--
+-- Name: changeslotstate(integer, integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.changeslotstate(integer, integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    UPDATE station_slot SET
+    	state = (state = FALSE)
+    WHERE idStation = $1 AND slot = $2;
+END;
+$_$;
+
+
+ALTER FUNCTION public.changeslotstate(integer, integer) OWNER TO silva;
+
+--
+-- Name: changeslotuse(integer, integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.changeslotuse(integer, integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    UPDATE station_slot SET
+    	bike = (bike = FALSE)
+    WHERE idStation = $1 AND slot = $2;
+END;
+$_$;
+
+
+ALTER FUNCTION public.changeslotuse(integer, integer) OWNER TO silva;
+
+--
+-- Name: changestationstate(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.changestationstate(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    UPDATE bike_station SET
+    	state = (state = FALSE)
+    WHERE idStation = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.changestationstate(integer) OWNER TO silva;
+
+--
+-- Name: clientreg(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.clientreg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+	texto VARCHAR;
+BEGIN
+	IF (TG_OP = 'INSERT') THEN
+		texto := 'Its Alive! - ';
+		CASE NEW.role
+			WHEN 1 THEN
+				texto := texto || 'Usuario';
+			WHEN 2 THEN
+				texto := texto || 'Moderador';
+			WHEN 3 THEN
+				texto := texto || 'Administrador';
+			ELSE
+				texto := texto || 'MISSINGNO';
+		END CASE;
+		PERFORM add_history_cli(NEW.idCli,texto || ' criado', 'D'); --ação
+		RETURN NEW;
+	ELSEIF (TG_OP = 'UPDATE') THEN
+		IF (NEW.state IS NOT NULL) AND (NEW.state <> OLD.state) THEN
+			IF NEW.state THEN
+				PERFORM add_history_cli(OLD.idCli,'Situação - Foi liberado no sistema','D');
+			ELSE
+				PERFORM add_history_cli(OLD.idCli, 'Situação - Foi bloqueado no sistema','D');
+			END IF;			
+		END IF;
+		IF (OLD.role <> NEW.role) AND (NEW.role IS NOT NULL) THEN
+			CASE NEW.role
+				WHEN 1 THEN
+					PERFORM add_history_cli(OLD.idCli,'Hierarquia - Passou a ser usuario','D');
+				WHEN 2 THEN
+					PERFORM add_history_cli(OLD.idCli,'Hierarquia - Passou a ser moderador','D');
+				WHEN 3 THEN
+					PERFORM add_history_cli(OLD.idCli,'Hierarquia - Passou a ser administrador','D');
+				ELSE
+					PERFORM add_history_cli(OLD.idCli,'Hierarquia - Passou a ser MISSINGNO','D');
+			END CASE;
+		END IF;
+		IF (OLD.password <> NEW.password) AND (OLD.password IS NOT NULL) AND (NEW.password IS NOT NULL) THEN
+			PERFORM add_history_cli(OLD.idCli,'Acesso - Senha alterada','D');
+		END IF;
+		IF (OLD.username <> NEW.username) AND (OLD.username IS NOT NULL) AND (NEW.username IS NOT NULL) THEN
+			PERFORM add_history_cli(OLD.idCli,'Acesso - nome de usuário alterado de ' || OLD.username || ' para ' || NEW.username,'D');
+		END IF;
+		RETURN NEW;
+	END IF;
+	RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION public.clientreg() OWNER TO silva;
+
+--
+-- Name: close_vdb_log(integer, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.close_vdb_log(integer, integer, integer, integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	out_log vdb_log.idLog%TYPE;
+	st_temp bike_station%ROWTYPE;
+BEGIN
+	SELECT idLog INTO out_log FROM vdb_log WHERE idCli = $1 AND idBike = $2 AND state = FALSE;
+	SELECT * INTO st_temp FROM bike_station WHERE idStation = $3;
+	IF (out_log IS NOT NULL) AND (st_temp IS NOT NULL) THEN
+		UPDATE vdb_log SET
+			idStationIn = st_temp.idStation,
+			name_stIn = st_temp.name,
+			slotIn = $4,
+			state = TRUE,
+			regInDate = CURRENT_TIMESTAMP
+		WHERE idLog = out_log;
+	ELSE
+		RAISE EXCEPTION 'Não foi possível realizar uma devolução' USING HINT = 'Por favor, cheque os dados que estão sendo enviados';
+	END IF;
+END;
+$_$;
+
+
+ALTER FUNCTION public.close_vdb_log(integer, integer, integer, integer) OWNER TO silva;
+
+--
+-- Name: createbike(character varying); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.createbike(character varying) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	INSERT INTO bike (name) VALUES ($1);
+END;
+$_$;
+
+
+ALTER FUNCTION public.createbike(character varying) OWNER TO silva;
+
+--
+-- Name: createbikestation(character varying, character varying, double precision, double precision); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.createbikestation(character varying, character varying, double precision, double precision) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	INSERT INTO bike_station (name, password, lat, lon) VALUES ($1,$2,$3,$4); --ação
+END;
+$_$;
+
+
+ALTER FUNCTION public.createbikestation(character varying, character varying, double precision, double precision) OWNER TO silva;
+
+--
+-- Name: createclient(integer, character varying, character varying); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.createclient(integer, character varying, character varying) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	INSERT INTO client_vdb (role,username,password) VALUES ($1,$2,$3);
+END;
+$_$;
+
+
+ALTER FUNCTION public.createclient(integer, character varying, character varying) OWNER TO silva;
+
+--
+-- Name: deassignslot(integer, integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.deassignslot(integer, integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	slot_temp station_slot%ROWTYPE;
+	slots_temp INT;
+BEGIN
+	SELECT COUNT(*) INTO slots_temp FROM station_slot WHERE idStation = $1;
+	SELECT * INTO slot_temp FROM station_slot WHERE idStation = $1 AND slot = $2;
+	IF slot_temp IS NULL THEN
+		RAISE EXCEPTION 'O slot de nº % não existe!',$2
+			USING HINT = 'Por favor escolha um dos '|| slots_temp ||' slots existentes';
+	ELSEIF slot_temp.bike THEN
+		RAISE EXCEPTION 'O slot de nº % sendo utilizado!',$2
+			USING HINT = 'Por favor escolha um slot vazio';
+	END IF;
+	DELETE FROM station_slot WHERE slot = slots_temp AND idStation = $1 AND slot = $2;
+	UPDATE station_slot SET
+		slot = slot - 1
+	WHERE idStation = $1 AND slot > $2;
+	IF $2 < slots_temp THEN
+		PERFORM add_history_station($1,'Slots - Slots reordenados','D');
+	END IF;
+END;
+$_$;
+
+
+ALTER FUNCTION public.deassignslot(integer, integer) OWNER TO silva;
+
+--
+-- Name: delbike(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.delbike(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	DELETE FROM bike WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.delbike(integer) OWNER TO silva;
+
+--
+-- Name: delbikes(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.delbikes() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	DELETE FROM bike;
+END;
+$$;
+
+
+ALTER FUNCTION public.delbikes() OWNER TO silva;
+
+--
+-- Name: delclient(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.delclient(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	DELETE FROM client_vdb WHERE idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.delclient(integer) OWNER TO silva;
+
+--
+-- Name: delclients(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.delclients() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	DELETE FROM client_vdb;
+END;
+$$;
+
+
+ALTER FUNCTION public.delclients() OWNER TO silva;
+
+--
+-- Name: delstation(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.delstation(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	DELETE FROM bike_station WHERE idStation = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.delstation(integer) OWNER TO silva;
+
+--
+-- Name: delstations(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.delstations() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	DELETE FROM bike_station;
+END;
+$$;
+
+
+ALTER FUNCTION public.delstations() OWNER TO silva;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: bike; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.bike (
+    idbike integer NOT NULL,
+    idstation integer,
+    name character varying(40) NOT NULL,
+    regdate timestamp without time zone DEFAULT now(),
+    lat double precision DEFAULT '-5.206798'::numeric,
+    lon double precision DEFAULT '-37.323969'::numeric,
+    slot integer DEFAULT 0,
+    state boolean DEFAULT false,
+    onride boolean DEFAULT false
+);
+
+
+ALTER TABLE public.bike OWNER TO silva;
+
+--
+-- Name: getbike(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getbike(integer) RETURNS SETOF public.bike
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT * FROM bike WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getbike(integer) OWNER TO silva;
+
+--
+-- Name: getbikeofcli(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getbikeofcli(integer) RETURNS integer
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	res INT;
+BEGIN
+	SELECT idBike INTO res FROM vdb_log WHERE idCli = $1 AND state = FALSE;
+	RETURN res;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getbikeofcli(integer) OWNER TO silva;
+
+--
+-- Name: getbikes(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getbikes() RETURNS TABLE(idbike integer, name character varying, state boolean, onride boolean)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT bk.idBike,bk.name,bk.state,bk.onRide FROM bike as bk;
+END;
+$$;
+
+
+ALTER FUNCTION public.getbikes() OWNER TO silva;
+
+--
+-- Name: getbikesoffst(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getbikesoffst(integer) RETURNS TABLE(idbike integer, name character varying, slot integer, state boolean)
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT bk.idBike,bk.name,bk.slot,bk.state FROM bike as bk WHERE bk.idStation = $1 AND bk.onRide = TRUE;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getbikesoffst(integer) OWNER TO silva;
+
+--
+-- Name: getbikesonst(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getbikesonst(integer) RETURNS TABLE(idbike integer, name character varying, slot integer, state boolean)
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT bk.idBike,bk.name,bk.slot,bk.state FROM bike as bk WHERE bk.idStation = $1 AND bk.onRide = FALSE;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getbikesonst(integer) OWNER TO silva;
+
+--
+-- Name: getbikesst(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getbikesst(integer) RETURNS TABLE(idbike integer, name character varying, slot integer, state boolean)
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT bk.idBike,bk.name,bk.slot,bk.state FROM bike as bk WHERE bk.idStation = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getbikesst(integer) OWNER TO silva;
+
+--
+-- Name: getbksname(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getbksname() RETURNS SETOF character varying
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT name FROM bike;
+END;
+$$;
+
+
+ALTER FUNCTION public.getbksname() OWNER TO silva;
+
+--
+-- Name: client_vdb; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.client_vdb (
+    idcli integer NOT NULL,
+    role integer DEFAULT 0,
+    username character varying(60) NOT NULL,
+    password character varying(150) NOT NULL,
+    onbike boolean DEFAULT false,
+    state boolean DEFAULT false,
+    regdate timestamp without time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.client_vdb OWNER TO silva;
+
+--
+-- Name: getclient(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getclient(integer) RETURNS SETOF public.client_vdb
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT cli.* FROM client_vdb AS cli
+	WHERE cli.idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getclient(integer) OWNER TO silva;
+
+--
+-- Name: getclientbyusername(character varying); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getclientbyusername(character varying) RETURNS SETOF public.client_vdb
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT * FROM client_vdb WHERE username = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getclientbyusername(character varying) OWNER TO silva;
+
+--
+-- Name: getclientlogin(character varying, character varying); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getclientlogin(character varying, character varying) RETURNS SETOF public.client_vdb
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT * FROM client_vdb WHERE username = $1 AND password = $2;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getclientlogin(character varying, character varying) OWNER TO silva;
+
+--
+-- Name: getclients(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getclients() RETURNS TABLE(idcli integer, role integer, username character varying, onbike boolean, state boolean)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT cli.idCli,cli.role,cli.username,cli.onBike,cli.state FROM client_vdb as cli;
+END;
+$$;
+
+
+ALTER FUNCTION public.getclients() OWNER TO silva;
+
+--
+-- Name: getclientsusername(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getclientsusername() RETURNS SETOF character varying
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT cli.username FROM client_vdb as cli;
+END;
+$$;
+
+
+ALTER FUNCTION public.getclientsusername() OWNER TO silva;
+
+--
+-- Name: getcountalllogs(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getcountalllogs() RETURNS public.dup_result
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+	res dup_result%ROWTYPE;
+BEGIN
+	SELECT COUNT(*) INTO res.total FROM vdb_log;
+	SELECT COUNT(*) INTO res.now FROM vdb_log WHERE state = FALSE;
+	RETURN res;
+END;
+$$;
+
+
+ALTER FUNCTION public.getcountalllogs() OWNER TO silva;
+
+--
+-- Name: getcountalllogsbk(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getcountalllogsbk(integer) RETURNS bigint
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	total BIGINT;
+BEGIN
+	SELECT COUNT(*) INTO total FROM vdb_log WHERE idBike = $1;
+	RETURN total;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getcountalllogsbk(integer) OWNER TO silva;
+
+--
+-- Name: getcountalllogscli(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getcountalllogscli(integer) RETURNS bigint
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	total BIGINT;
+BEGIN
+	SELECT COUNT(*) INTO total FROM vdb_log WHERE idCli = $1;
+	RETURN total;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getcountalllogscli(integer) OWNER TO silva;
+
+--
+-- Name: getcountalllogsst(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getcountalllogsst(integer) RETURNS public.dup_resultst
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	res dup_resultST%ROWTYPE;
+BEGIN
+	SELECT COUNT(*) INTO res.totalOut FROM vdb_log WHERE idStationOut = $1;
+	SELECT COUNT(*) INTO res.totalIn FROM vdb_log WHERE idStationIn = $1;
+	SELECT COUNT(*) INTO res.now FROM vdb_log WHERE idStationOut = $1 AND state = FALSE;
+	RETURN res;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getcountalllogsst(integer) OWNER TO silva;
+
+--
+-- Name: bike_history; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.bike_history (
+    idlog integer NOT NULL,
+    idbike integer,
+    regdate timestamp without time zone DEFAULT now(),
+    info character varying(200),
+    label public.label_tag DEFAULT 'U'::bpchar
+);
+
+
+ALTER TABLE public.bike_history OWNER TO silva;
+
+--
+-- Name: gethistbike(integer, character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.gethistbike(integer, character) RETURNS SETOF public.bike_history
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	IF $2 IS NOT NULL THEN
+		RETURN QUERY SELECT * FROM bike_history WHERE idBike = $1 AND label = $2;
+	END IF;
+	RETURN QUERY SELECT * FROM bike_history WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.gethistbike(integer, character) OWNER TO silva;
+
+--
+-- Name: client_history; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.client_history (
+    idlog integer NOT NULL,
+    idcli integer,
+    regdate timestamp without time zone DEFAULT now(),
+    info character varying(200),
+    label public.label_tag DEFAULT 'U'::bpchar
+);
+
+
+ALTER TABLE public.client_history OWNER TO silva;
+
+--
+-- Name: gethistcli(integer, character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.gethistcli(integer, character) RETURNS SETOF public.client_history
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	IF $2 IS NOT NULL THEN
+		RETURN QUERY SELECT * FROM client_history WHERE idCli = $1 AND label = $2;
+	END IF;
+	RETURN QUERY SELECT * FROM client_history WHERE idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.gethistcli(integer, character) OWNER TO silva;
+
+--
+-- Name: gethistsbike(character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.gethistsbike(character) RETURNS SETOF public.bike_history
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	IF $1 IS NOT NULL THEN
+		RETURN QUERY SELECT * FROM bike_history WHERE label = $1;
+	END IF;
+	RETURN QUERY SELECT * FROM bike_history;
+END;
+$_$;
+
+
+ALTER FUNCTION public.gethistsbike(character) OWNER TO silva;
+
+--
+-- Name: gethistscli(character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.gethistscli(character) RETURNS SETOF public.client_history
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	IF $1 IS NOT NULL THEN
+		RETURN QUERY SELECT * FROM client_history WHERE label = $1;
+	END IF;
+	RETURN QUERY SELECT * FROM client_history;
+END;
+$_$;
+
+
+ALTER FUNCTION public.gethistscli(character) OWNER TO silva;
+
+--
+-- Name: station_history; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.station_history (
+    idlog integer NOT NULL,
+    idstation integer,
+    regdate timestamp without time zone DEFAULT now(),
+    info character varying(200),
+    label public.label_tag DEFAULT 'U'::bpchar
+);
+
+
+ALTER TABLE public.station_history OWNER TO silva;
+
+--
+-- Name: gethistsstation(character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.gethistsstation(character) RETURNS SETOF public.station_history
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	IF $1 IS NOT NULL THEN
+		RETURN QUERY SELECT * FROM station_history WHERE label = $1;
+	END IF;
+	RETURN QUERY SELECT * FROM station_history;
+END;
+$_$;
+
+
+ALTER FUNCTION public.gethistsstation(character) OWNER TO silva;
+
+--
+-- Name: gethiststation(integer, character); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.gethiststation(integer, character) RETURNS SETOF public.station_history
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	IF $2 IS NOT NULL THEN
+		RETURN QUERY SELECT * FROM station_history WHERE idStation = $1 AND label = $2;
+	END IF;
+	RETURN QUERY SELECT * FROM station_history WHERE idStation = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.gethiststation(integer, character) OWNER TO silva;
+
+--
+-- Name: info_client; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.info_client (
+    idcli integer,
+    fullname character varying(80) NOT NULL,
+    email character varying(50) NOT NULL,
+    phone character varying(15) NOT NULL,
+    profession character varying(30),
+    sex public.sex_tag DEFAULT 'U'::bpchar,
+    birthdate date
+);
+
+
+ALTER TABLE public.info_client OWNER TO silva;
+
+--
+-- Name: getinfocli(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getinfocli(integer) RETURNS SETOF public.info_client
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT * FROM info_client WHERE idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getinfocli(integer) OWNER TO silva;
+
+--
+-- Name: getinfoscli(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getinfoscli() RETURNS SETOF public.info_client
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT * FROM info_client;
+END;
+$$;
+
+
+ALTER FUNCTION public.getinfoscli() OWNER TO silva;
+
+--
+-- Name: getopbikes(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getopbikes() RETURNS TABLE(idbike integer, name character varying)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT bk.idBike,bk.name FROM bike as bk WHERE bk.state = TRUE AND bk.onRide = FALSE;
+END;
+$$;
+
+
+ALTER FUNCTION public.getopbikes() OWNER TO silva;
+
+--
+-- Name: station_slot; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.station_slot (
+    idstation integer,
+    slot integer DEFAULT 0,
+    state boolean DEFAULT false,
+    bike boolean DEFAULT false,
+    regdate timestamp without time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.station_slot OWNER TO silva;
+
+--
+-- Name: getslots(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getslots(integer) RETURNS SETOF public.station_slot
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT * FROM station_slot WHERE idStation = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getslots(integer) OWNER TO silva;
+
+--
+-- Name: bike_station; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.bike_station (
+    idstation integer NOT NULL,
+    name character varying(40) NOT NULL,
+    password character varying(150) NOT NULL,
+    regdate timestamp without time zone DEFAULT now(),
+    lat double precision DEFAULT '-5.206798'::numeric,
+    lon double precision DEFAULT '-37.323969'::numeric,
+    state boolean DEFAULT false
+);
+
+
+ALTER TABLE public.bike_station OWNER TO silva;
+
+--
+-- Name: getstation(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getstation(integer) RETURNS SETOF public.bike_station
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY SELECT * FROM bike_station WHERE idStation = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getstation(integer) OWNER TO silva;
+
+--
+-- Name: getstations(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getstations() RETURNS TABLE(idstation integer, name character varying, lat double precision, lon double precision, state boolean, slots bigint)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT st.idStation,st.name,st.lat,st.lon,st.state,
+	(SELECT COUNT(*) FROM station_slot as sl WHERE sl.idStation = st.idStation) AS slots
+	FROM bike_station as st;
+END;
+$$;
+
+
+ALTER FUNCTION public.getstations() OWNER TO silva;
+
+--
+-- Name: getstsname(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getstsname() RETURNS SETOF character varying
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT name FROM bike_station;
+END;
+$$;
+
+
+ALTER FUNCTION public.getstsname() OWNER TO silva;
+
+--
+-- Name: getvalcli(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getvalcli() RETURNS TABLE(idcli integer, username character varying)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT cli.idCli, cli.username FROM client_vdb as cli WHERE cli.state = TRUE AND cli.onBike = FALSE;
+END;
+$$;
+
+
+ALTER FUNCTION public.getvalcli() OWNER TO silva;
+
+--
+-- Name: getvalsts(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getvalsts() RETURNS TABLE(idstation integer, name character varying, lat double precision, lon double precision)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY SELECT st.idStation,st.name,st.lat,st.lon FROM bike_station as st WHERE st.state = TRUE;
+END;
+$$;
+
+
+ALTER FUNCTION public.getvalsts() OWNER TO silva;
+
+--
+-- Name: vdb_log; Type: TABLE; Schema: public; Owner: silva
+--
+
+CREATE TABLE public.vdb_log (
+    idlog integer NOT NULL,
+    idcli integer,
+    name_cli character varying(60),
+    idbike integer,
+    name_bk character varying(40),
+    idstationout integer,
+    name_stout character varying(40),
+    slotout integer,
+    idstationin integer,
+    name_stin character varying(40),
+    slotin integer,
+    state boolean DEFAULT false,
+    regoutdate timestamp without time zone DEFAULT now(),
+    regindate timestamp without time zone
+);
+
+
+ALTER TABLE public.vdb_log OWNER TO silva;
+
+--
+-- Name: getvdblogs(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getvdblogs() RETURNS SETOF public.vdb_log
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	RETURN QUERY
+	SELECT * FROM vdb_log;
+END;
+$$;
+
+
+ALTER FUNCTION public.getvdblogs() OWNER TO silva;
+
+--
+-- Name: getvdblogsbk(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getvdblogsbk(integer) RETURNS SETOF public.vdb_log
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY
+	SELECT * FROM vdb_log WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getvdblogsbk(integer) OWNER TO silva;
+
+--
+-- Name: getvdblogscli(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getvdblogscli(integer) RETURNS SETOF public.vdb_log
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY
+	SELECT * FROM vdb_log WHERE idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getvdblogscli(integer) OWNER TO silva;
+
+--
+-- Name: getvdblogsst(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.getvdblogsst(integer) RETURNS SETOF public.vdb_log
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	RETURN QUERY
+	SELECT  * FROM vdb_log WHERE idStationOut = $1 OR idStationIn = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.getvdblogsst(integer) OWNER TO silva;
+
+--
+-- Name: inforegcli(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.inforegcli() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	IF (TG_OP = 'INSERT') THEN
+		PERFORM add_history_cli(NEW.idCli,'Cadastrou informações ao seu perfil','D');
+	ELSEIF (TG_OP = 'UPDATE') THEN
+		PERFORM add_history_cli(OLD.idCli,'Atualizou as informações de seu perfil','D');
+	END IF;
+	RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.inforegcli() OWNER TO silva;
+
+--
+-- Name: logreg(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.logreg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+	name_bike bike.name%TYPE;
+	name_st bike_station.name%TYPE;
+	name_cli client_vdb.username%TYPE;
+BEGIN
+	IF (TG_OP = 'INSERT') THEN
+		PERFORM changeOnBike(NEW.idCli);
+		PERFORM upd_bikeOut(NEW.idBike);
+		PERFORM changeSlotUse(NEW.idStationOut,NEW.slotOut);
+		PERFORM add_history_cli(NEW.idCli,'Vai de bike - Retirou a bicicleta ' || NEW.name_bk || ' do ' || NEW.slotOut || 'º slot da estação ' || NEW.name_stOut,'L');
+		PERFORM add_history_bike(NEW.idBike,'Vai de bike - Retirada do ' || NEW.slotOut ||  'º slot da estação ' || NEW.name_stOut || ' pelo usuário ' || NEW.name_cli,'L');
+		PERFORM add_history_station(NEW.idStationOut,'Vai de bike - Bicicleta ' || NEW.name_bk || ' retirada do ' || NEW.slotOut || 'º slot pelo usuário ' || NEW.name_cli,'L');
+		RETURN NEW;
+	ELSEIF (TG_OP = 'UPDATE') THEN
+		PERFORM changeOnBike(OLD.idCli);
+		PERFORM upd_bikeIn(OLD.idBike,NEW.idStationIn,NEW.slotIn);
+		PERFORM changeSlotUse(NEW.idStationIn,NEW.slotIn);
+		PERFORM add_history_cli(OLD.idCli,'Vai de bike - Entregou a bicicleta ' || OLD.name_bk || ' no ' || NEW.slotIn || 'º slot da estação ' || NEW.name_stIn,'L');
+		PERFORM add_history_bike(OLD.idBike,'Vai de bike - Entregue no ' || NEW.slotIn ||  'º slot da estação ' || NEW.name_stIn || ' pelo usuário ' || OLD.name_cli,'L');
+		PERFORM add_history_station(NEW.idStationIn,'Vai de bike - Bicicleta ' || OLD.name_bk || ' entregue no ' || NEW.slotIn || 'º slot pelo usuário ' || OLD.name_cli,'L');
+		RETURN NEW;
+	END IF;
+END;
+$$;
+
+
+ALTER FUNCTION public.logreg() OWNER TO silva;
+
+--
+-- Name: open_vdb_log(integer, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.open_vdb_log(integer, integer, integer, integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	cli_temp client_vdb%ROWTYPE;
+	bk_temp bike%ROWTYPE;
+	st_temp bike_station%ROWTYPE;
+BEGIN
+	SELECT * INTO cli_temp FROM client_vdb WHERE idCli = $1;
+	SELECT * INTO bk_temp FROM bike WHERE idBike = $2;
+	SELECT * INTO st_temp FROM bike_station WHERE idStation = $3;
+	IF (cli_temp IS NOT NULL) AND (bk_temp IS NOT NULL) AND (st_temp IS NOT NULL) AND (cli_temp.state) AND (cli_temp.onBike = FALSE) AND (bk_temp.state) AND (st_temp.state) THEN
+		INSERT INTO vdb_log (idCli,name_cli,idBike,name_bk,idStationOut,name_stOut,slotOut)
+		VALUES (cli_temp.idCli,cli_temp.username,bk_temp.idBike,bk_temp.name,st_temp.idStation,st_temp.name,$4);
+	ELSE
+		RAISE EXCEPTION 'Não foi possível realizar um empréstimo' USING HINT = 'Por favor, cheque os dados que estão sendo enviados';
+	END IF;
+END;
+$_$;
+
+
+ALTER FUNCTION public.open_vdb_log(integer, integer, integer, integer) OWNER TO silva;
+
+--
+-- Name: signupclient(character varying, character varying, character varying, character varying, character varying, character varying, public.sex_tag, date); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.signupclient(character varying, character varying, character varying, character varying, character varying, character varying, public.sex_tag, date) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	id_temp client_vdb.idCli%TYPE;
+BEGIN
+	PERFORM createClient(0,$1,$2);
+	SELECT idCli INTO id_temp FROM client_vdb WHERE username = $1;
+	PERFORM upd_info_cli(id_temp,$3,$4,$5,$6,$7,$8);
+END;
+$_$;
+
+
+ALTER FUNCTION public.signupclient(character varying, character varying, character varying, character varying, character varying, character varying, public.sex_tag, date) OWNER TO silva;
+
+--
+-- Name: slotreg(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.slotreg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+	sta INT;
+BEGIN
+	IF (TG_OP = 'DELETE') THEN
+		SELECT idStation INTO sta FROM bike_station AS st WHERE OLD.idStation = st.idStation;
+		IF (sta IS NOT NULL) THEN
+			PERFORM add_history_station(OLD.idStation,'Slots - ' || OLD.slot || 'º slot excluído','D');
+		END IF;
+	ELSEIF (TG_OP = 'INSERT') THEN
+		PERFORM add_history_station(NEW.idStation,'Slots - ' || NEW.slot || 'º slot adicionado','D'); --ação
+		RETURN NEW;
+	ELSEIF (TG_OP = 'UPDATE') THEN
+		IF (OLD.state <> NEW.state) AND (NEW.state IS NOT NULL) THEN
+			IF (NEW.state) THEN
+				PERFORM add_history_station(OLD.idStation,'Slots - '|| OLD.slot ||'º slot ativado','D');
+			ELSE
+				PERFORM add_history_station(OLD.idStation, 'Slots - '|| OLD.slot || 'º slot desativado','D');
+			END IF;
+		END IF;
+		RETURN NEW;
+	END IF;
+	RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION public.slotreg() OWNER TO silva;
+
+--
+-- Name: stationreg(); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.stationreg() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+	IF (TG_OP = 'INSERT') THEN
+		PERFORM add_history_station(NEW.idStation,'Its Alive! - Estação criada','D'); --ação
+		RETURN NEW;
+	ELSEIF (TG_OP = 'UPDATE') THEN
+		IF (OLD.state <> NEW.state) AND (NEW.state IS NOT NULL) AND (OLD.state IS NOT NULL) THEN
+			IF (NEW.state) THEN
+				PERFORM add_history_station(OLD.idStation,'Situação - Ativa','D');
+			ELSE
+				PERFORM add_history_station(OLD.idStation, 'Situação - Inativa','D');
+			END IF;
+		END IF;
+		IF (OLD.name <> NEW.name) AND (NEW.name IS NOT NULL) AND (OLD.name IS NOT NULL) THEN
+			PERFORM add_history_station(OLD.idStation,'Informações - Nome alterado de ' || OLD.name || ' para ' || NEW.name,'D');
+		END IF;
+		IF (OLD.password <> NEW.password) AND (NEW.password IS NOT NULL) AND (OLD.password IS NOT NULL) THEN
+			PERFORM add_history_station(OLD.idStation,'Informações - password alterada','D');
+		END IF;
+		RETURN NEW;
+	END IF;
+	RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION public.stationreg() OWNER TO silva;
+
+--
+-- Name: upd_bike(integer, character varying, boolean); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_bike(integer, character varying, boolean) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	UPDATE bike SET
+		name = $2,
+		state = $3
+	WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_bike(integer, character varying, boolean) OWNER TO silva;
+
+--
+-- Name: upd_bike_pos(integer, double precision, double precision); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_bike_pos(integer, double precision, double precision) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	UPDATE bike SET
+		lat = $2,
+		lon = $3
+	WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_bike_pos(integer, double precision, double precision) OWNER TO silva;
+
+--
+-- Name: upd_bike_station(integer, character varying, character varying, double precision, double precision, boolean); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_bike_station(integer, character varying, character varying, double precision, double precision, boolean) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	UPDATE bike_station SET
+		name = $2,
+		password = $3,
+		lat = $4,
+		lon = $5,
+		state = $6
+	WHERE idStation = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_bike_station(integer, character varying, character varying, double precision, double precision, boolean) OWNER TO silva;
+
+--
+-- Name: upd_bikein(integer, integer, integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_bikein(integer, integer, integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	UPDATE bike SET
+		idStation = $2,
+		slot = $3,
+		onRide = FALSE
+	WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_bikein(integer, integer, integer) OWNER TO silva;
+
+--
+-- Name: upd_bikeout(integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_bikeout(integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    UPDATE bike SET
+    	onRide = TRUE
+    WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_bikeout(integer) OWNER TO silva;
+
+--
+-- Name: upd_bikest(integer, integer, integer); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_bikest(integer, integer, integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	bk_temp bike%ROWTYPE;
+BEGIN
+	SELECT * INTO bk_temp FROM bike WHERE idBike = $1;
+	IF bk_temp IS NULL THEN
+		RAISE EXCEPTION 'Não existe essa bicicleta' USING HINT = 'Tente adicionar essa bicicleta';
+	END IF;
+	PERFORM changeSlotUse($2,$3);
+	UPDATE bike SET
+		idStation = $2,
+		slot = $3,
+		state = TRUE
+	WHERE idBike = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_bikest(integer, integer, integer) OWNER TO silva;
+
+--
+-- Name: upd_cli(integer, integer, character varying, character varying, boolean); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_cli(integer, integer, character varying, character varying, boolean) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+	UPDATE client_vdb SET
+		role = $2,
+		username = $3,
+		password = $4,
+		state = $5
+	WHERE idCli = $1;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_cli(integer, integer, character varying, character varying, boolean) OWNER TO silva;
+
+--
+-- Name: upd_info_cli(integer, character varying, character varying, character varying, character varying, public.sex_tag, date); Type: FUNCTION; Schema: public; Owner: silva
+--
+
+CREATE FUNCTION public.upd_info_cli(integer, character varying, character varying, character varying, character varying, public.sex_tag, date) RETURNS void
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+	temp_row info_client%ROWTYPE;
+BEGIN
+	SELECT * INTO temp_row FROM info_client WHERE idCli = $1;
+	IF temp_row IS NULL THEN
+		INSERT INTO info_client values ($1,$2,$3,$4,$5,$6,$7);
+	ELSE
+		UPDATE info_client SET
+			fullName = $2,
+			email = $3,
+			phone = $4,
+			profession = $5,
+			sex = $6,
+			birthDate = $7
+		WHERE idCli = $1;
+	END IF;
+END;
+$_$;
+
+
+ALTER FUNCTION public.upd_info_cli(integer, character varying, character varying, character varying, character varying, public.sex_tag, date) OWNER TO silva;
+
+--
+-- Name: bike_history_idlog_seq; Type: SEQUENCE; Schema: public; Owner: silva
+--
+
+CREATE SEQUENCE public.bike_history_idlog_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.bike_history_idlog_seq OWNER TO silva;
+
+--
+-- Name: bike_history_idlog_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: silva
+--
+
+ALTER SEQUENCE public.bike_history_idlog_seq OWNED BY public.bike_history.idlog;
+
+
+--
+-- Name: bike_idbike_seq; Type: SEQUENCE; Schema: public; Owner: silva
+--
+
+CREATE SEQUENCE public.bike_idbike_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.bike_idbike_seq OWNER TO silva;
+
+--
+-- Name: bike_idbike_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: silva
+--
+
+ALTER SEQUENCE public.bike_idbike_seq OWNED BY public.bike.idbike;
+
+
+--
+-- Name: bike_station_idstation_seq; Type: SEQUENCE; Schema: public; Owner: silva
+--
+
+CREATE SEQUENCE public.bike_station_idstation_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.bike_station_idstation_seq OWNER TO silva;
+
+--
+-- Name: bike_station_idstation_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: silva
+--
+
+ALTER SEQUENCE public.bike_station_idstation_seq OWNED BY public.bike_station.idstation;
+
+
+--
+-- Name: client_history_idlog_seq; Type: SEQUENCE; Schema: public; Owner: silva
+--
+
+CREATE SEQUENCE public.client_history_idlog_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.client_history_idlog_seq OWNER TO silva;
+
+--
+-- Name: client_history_idlog_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: silva
+--
+
+ALTER SEQUENCE public.client_history_idlog_seq OWNED BY public.client_history.idlog;
+
+
+--
+-- Name: client_vdb_idcli_seq; Type: SEQUENCE; Schema: public; Owner: silva
+--
+
+CREATE SEQUENCE public.client_vdb_idcli_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.client_vdb_idcli_seq OWNER TO silva;
+
+--
+-- Name: client_vdb_idcli_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: silva
+--
+
+ALTER SEQUENCE public.client_vdb_idcli_seq OWNED BY public.client_vdb.idcli;
+
+
+--
+-- Name: station_history_idlog_seq; Type: SEQUENCE; Schema: public; Owner: silva
+--
+
+CREATE SEQUENCE public.station_history_idlog_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.station_history_idlog_seq OWNER TO silva;
+
+--
+-- Name: station_history_idlog_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: silva
+--
+
+ALTER SEQUENCE public.station_history_idlog_seq OWNED BY public.station_history.idlog;
+
+
+--
+-- Name: vdb_log_idlog_seq; Type: SEQUENCE; Schema: public; Owner: silva
+--
+
+CREATE SEQUENCE public.vdb_log_idlog_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.vdb_log_idlog_seq OWNER TO silva;
+
+--
+-- Name: vdb_log_idlog_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: silva
+--
+
+ALTER SEQUENCE public.vdb_log_idlog_seq OWNED BY public.vdb_log.idlog;
+
+
+--
+-- Name: idbike; Type: DEFAULT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike ALTER COLUMN idbike SET DEFAULT nextval('public.bike_idbike_seq'::regclass);
+
+
+--
+-- Name: idlog; Type: DEFAULT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike_history ALTER COLUMN idlog SET DEFAULT nextval('public.bike_history_idlog_seq'::regclass);
+
+
+--
+-- Name: idstation; Type: DEFAULT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike_station ALTER COLUMN idstation SET DEFAULT nextval('public.bike_station_idstation_seq'::regclass);
+
+
+--
+-- Name: idlog; Type: DEFAULT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.client_history ALTER COLUMN idlog SET DEFAULT nextval('public.client_history_idlog_seq'::regclass);
+
+
+--
+-- Name: idcli; Type: DEFAULT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.client_vdb ALTER COLUMN idcli SET DEFAULT nextval('public.client_vdb_idcli_seq'::regclass);
+
+
+--
+-- Name: idlog; Type: DEFAULT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.station_history ALTER COLUMN idlog SET DEFAULT nextval('public.station_history_idlog_seq'::regclass);
+
+
+--
+-- Name: idlog; Type: DEFAULT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.vdb_log ALTER COLUMN idlog SET DEFAULT nextval('public.vdb_log_idlog_seq'::regclass);
+
+
+--
+-- Data for Name: bike; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.bike (idbike, idstation, name, regdate, lat, lon, slot, state, onride) FROM stdin;
+8	\N	Jenise	2018-06-19 20:44:43.896246	-5.20679800000000004	-37.3239689999999982	0	f	f
+2	1	Leanne	2018-06-19 20:44:43.829582	-5.20679800000000004	-37.3239689999999982	2	t	f
+3	2	Tawana	2018-06-19 20:44:43.840679	-5.20679800000000004	-37.3239689999999982	1	t	f
+4	2	Bernardina	2018-06-19 20:44:43.851791	-5.20679800000000004	-37.3239689999999982	2	t	f
+5	3	Loraine	2018-06-19 20:44:43.862913	-5.20679800000000004	-37.3239689999999982	1	t	f
+6	3	Robena	2018-06-19 20:44:43.874003	-5.20679800000000004	-37.3239689999999982	2	t	f
+7	4	Zandra	2018-06-19 20:44:43.885217	-5.20679800000000004	-37.3239689999999982	1	t	f
+1	1	Eugena	2018-06-19 20:44:43.82043	-5.20679800000000004	-37.3239689999999982	1	t	f
+\.
+
+
+--
+-- Data for Name: bike_history; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.bike_history (idlog, idbike, regdate, info, label) FROM stdin;
+1	1	2018-06-19 20:44:43.82043	Its Alive! - Bicicleta criada	D
+2	2	2018-06-19 20:44:43.829582	Its Alive! - Bicicleta criada	D
+3	3	2018-06-19 20:44:43.840679	Its Alive! - Bicicleta criada	D
+4	4	2018-06-19 20:44:43.851791	Its Alive! - Bicicleta criada	D
+5	5	2018-06-19 20:44:43.862913	Its Alive! - Bicicleta criada	D
+6	6	2018-06-19 20:44:43.874003	Its Alive! - Bicicleta criada	D
+7	7	2018-06-19 20:44:43.885217	Its Alive! - Bicicleta criada	D
+8	8	2018-06-19 20:44:43.896246	Its Alive! - Bicicleta criada	D
+9	1	2018-06-19 20:44:43.907345	Vai de Bike - Vinculada ao sistema na estação Aliada	L
+10	1	2018-06-19 20:44:43.907345	Situação - Ativa	D
+11	2	2018-06-19 20:44:43.91846	Vai de Bike - Vinculada ao sistema na estação Aliada	L
+12	2	2018-06-19 20:44:43.91846	Situação - Ativa	D
+13	3	2018-06-19 20:44:43.929746	Vai de Bike - Vinculada ao sistema na estação Olimpia	L
+14	3	2018-06-19 20:44:43.929746	Situação - Ativa	D
+15	4	2018-06-19 20:44:43.940652	Vai de Bike - Vinculada ao sistema na estação Olimpia	L
+16	4	2018-06-19 20:44:43.940652	Situação - Ativa	D
+17	5	2018-06-19 20:44:43.951864	Vai de Bike - Vinculada ao sistema na estação Sang	L
+18	5	2018-06-19 20:44:43.951864	Situação - Ativa	D
+19	6	2018-06-19 20:44:43.962944	Vai de Bike - Vinculada ao sistema na estação Sang	L
+20	6	2018-06-19 20:44:43.962944	Situação - Ativa	D
+21	7	2018-06-19 20:44:43.974062	Vai de Bike - Vinculada ao sistema na estação Milda	L
+22	7	2018-06-19 20:44:43.974062	Situação - Ativa	D
+24	1	2018-06-19 20:46:33.850606	Vai de bike - Retirada do 1º slot da estação Aliada pelo usuário r2	L
+25	1	2018-06-19 20:52:48.783567	Vai de bike - Entregue no 1º slot da estação Aliada pelo usuário r2	L
+26	1	2018-06-19 21:03:22.318664	Vai de bike - Retirada do 1º slot da estação Aliada pelo usuário r2	L
+27	1	2018-06-19 21:04:32.750095	Vai de bike - Entregue no 1º slot da estação Aliada pelo usuário r2	L
+\.
+
+
+--
+-- Name: bike_history_idlog_seq; Type: SEQUENCE SET; Schema: public; Owner: silva
+--
+
+SELECT pg_catalog.setval('public.bike_history_idlog_seq', 27, true);
+
+
+--
+-- Name: bike_idbike_seq; Type: SEQUENCE SET; Schema: public; Owner: silva
+--
+
+SELECT pg_catalog.setval('public.bike_idbike_seq', 8, true);
+
+
+--
+-- Data for Name: bike_station; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.bike_station (idstation, name, password, regdate, lat, lon, state) FROM stdin;
+1	Aliada	xEqGAG	2018-06-19 20:44:43.365599	-5.20679800000000004	-37.3239689999999982	t
+2	Olimpia	hbHevxu	2018-06-19 20:44:43.384865	-5.20679800000000004	-37.3239689999999982	t
+3	Sang	hdCdj0ae	2018-06-19 20:44:43.395889	-5.20679800000000004	-37.3239689999999982	t
+4	Milda	e8FADM4nzxf	2018-06-19 20:44:43.407026	-5.20679800000000004	-37.3239689999999982	t
+\.
+
+
+--
+-- Name: bike_station_idstation_seq; Type: SEQUENCE SET; Schema: public; Owner: silva
+--
+
+SELECT pg_catalog.setval('public.bike_station_idstation_seq', 4, true);
+
+
+--
+-- Data for Name: client_history; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.client_history (idlog, idcli, regdate, info, label) FROM stdin;
+1	1	2018-06-19 20:44:43.985077	Its Alive! - MISSINGNO criado	D
+2	2	2018-06-19 20:44:43.996366	Its Alive! - MISSINGNO criado	D
+3	3	2018-06-19 20:44:44.007362	Its Alive! - Moderador criado	D
+4	4	2018-06-19 20:44:44.01847	Its Alive! - Administrador criado	D
+5	5	2018-06-19 20:44:44.029678	Its Alive! - Moderador criado	D
+6	6	2018-06-19 20:44:44.040665	Its Alive! - Administrador criado	D
+7	7	2018-06-19 20:44:44.052022	Its Alive! - MISSINGNO criado	D
+8	8	2018-06-19 20:44:44.063093	Its Alive! - Usuario criado	D
+9	1	2018-06-19 20:44:44.074263	Cadastrou informações ao seu perfil	D
+10	2	2018-06-19 20:44:44.085318	Cadastrou informações ao seu perfil	D
+11	3	2018-06-19 20:44:44.096567	Cadastrou informações ao seu perfil	D
+12	4	2018-06-19 20:44:44.107518	Cadastrou informações ao seu perfil	D
+13	5	2018-06-19 20:44:44.118661	Cadastrou informações ao seu perfil	D
+14	6	2018-06-19 20:44:44.129733	Cadastrou informações ao seu perfil	D
+15	7	2018-06-19 20:44:44.14086	Cadastrou informações ao seu perfil	D
+16	8	2018-06-19 20:44:44.152005	Cadastrou informações ao seu perfil	D
+17	1	2018-06-19 20:44:44.163063	Situação - Foi liberado no sistema	D
+18	2	2018-06-19 20:44:44.174208	Situação - Foi liberado no sistema	D
+19	3	2018-06-19 20:44:44.185326	Situação - Foi liberado no sistema	D
+20	4	2018-06-19 20:44:44.196393	Situação - Foi liberado no sistema	D
+21	5	2018-06-19 20:44:44.207494	Situação - Foi liberado no sistema	D
+22	6	2018-06-19 20:44:44.218611	Situação - Foi liberado no sistema	D
+23	7	2018-06-19 20:44:44.229722	Situação - Foi liberado no sistema	D
+24	8	2018-06-19 20:44:44.240818	Situação - Foi liberado no sistema	D
+26	1	2018-06-19 20:46:33.850606	Vai de bike - Retirou a bicicleta Eugena do 1º slot da estação Aliada	L
+27	1	2018-06-19 20:52:48.783567	Vai de bike - Entregou a bicicleta Eugena no 1º slot da estação Aliada	L
+28	1	2018-06-19 21:03:22.318664	Vai de bike - Retirou a bicicleta Eugena do 1º slot da estação Aliada	L
+29	1	2018-06-19 21:04:32.750095	Vai de bike - Entregou a bicicleta Eugena no 1º slot da estação Aliada	L
+\.
+
+
+--
+-- Name: client_history_idlog_seq; Type: SEQUENCE SET; Schema: public; Owner: silva
+--
+
+SELECT pg_catalog.setval('public.client_history_idlog_seq', 29, true);
+
+
+--
+-- Data for Name: client_vdb; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.client_vdb (idcli, role, username, password, onbike, state, regdate) FROM stdin;
+2	0	unhearty	anolandi55	f	t	2018-06-19 20:44:43.996366
+3	2	kingrow	camilaqjin99	f	t	2018-06-19 20:44:44.007362
+4	3	dipteran	siqueira73	f	t	2018-06-19 20:44:44.01847
+5	2	pauxi	allefcurin43	f	t	2018-06-19 20:44:44.029678
+6	3	underaid	killingin88	f	t	2018-06-19 20:44:44.040665
+7	0	cardiophrenia	coracao22	f	t	2018-06-19 20:44:44.052022
+8	1	armaria	qqussi44	f	t	2018-06-19 20:44:44.063093
+1	0	r2	anarquia88	f	t	2018-06-19 20:44:43.985077
+\.
+
+
+--
+-- Name: client_vdb_idcli_seq; Type: SEQUENCE SET; Schema: public; Owner: silva
+--
+
+SELECT pg_catalog.setval('public.client_vdb_idcli_seq', 8, true);
+
+
+--
+-- Data for Name: info_client; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.info_client (idcli, fullname, email, phone, profession, sex, birthdate) FROM stdin;
+1	Filonai Genot	fulc@treste.com	66665555	ouvinte	M	1991-05-02
+2	Finn Genot	finnlc@teste.com	66665555	heroi	M	1991-05-02
+3	Fanho Lance	fanho@teste.com	65467855	outsider	M	1999-07-02
+4	Arere Umoki	aretw0@teste2.com	99768684	insider	M	1994-05-25
+5	Blossom Mahaley	koil@cabot.co.uk	30777804	toastmastery	M	2012-05-26
+6	Debbie Willhelm	aldermanlike@histamine.org	68119266	thrips	F	2016-06-17
+7	Shalanda Battenhouse	gastroscope@unenkindled.net	71110539	acuesthesia	F	2016-04-18
+8	Cristine Marzinske	pharyngopneustal@cleavability.co.uk	86460736	episiotomy	M	2016-12-27
+\.
+
+
+--
+-- Data for Name: station_history; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.station_history (idlog, idstation, regdate, info, label) FROM stdin;
+1	1	2018-06-19 20:44:43.365599	Its Alive! - Estação criada	D
+2	2	2018-06-19 20:44:43.384865	Its Alive! - Estação criada	D
+3	3	2018-06-19 20:44:43.395889	Its Alive! - Estação criada	D
+4	4	2018-06-19 20:44:43.407026	Its Alive! - Estação criada	D
+5	1	2018-06-19 20:44:43.418002	Situação - Ativa	D
+6	2	2018-06-19 20:44:43.429227	Situação - Ativa	D
+7	3	2018-06-19 20:44:43.440118	Situação - Ativa	D
+8	4	2018-06-19 20:44:43.4513	Situação - Ativa	D
+9	1	2018-06-19 20:44:43.462514	Slots - 1º slot adicionado	D
+10	1	2018-06-19 20:44:43.473498	Slots - 2º slot adicionado	D
+11	1	2018-06-19 20:44:43.484597	Slots - 3º slot adicionado	D
+12	1	2018-06-19 20:44:43.495941	Slots - 4º slot adicionado	D
+13	2	2018-06-19 20:44:43.507165	Slots - 1º slot adicionado	D
+14	2	2018-06-19 20:44:43.518098	Slots - 2º slot adicionado	D
+15	2	2018-06-19 20:44:43.52926	Slots - 3º slot adicionado	D
+16	2	2018-06-19 20:44:43.540504	Slots - 4º slot adicionado	D
+17	3	2018-06-19 20:44:43.551603	Slots - 1º slot adicionado	D
+18	3	2018-06-19 20:44:43.562644	Slots - 2º slot adicionado	D
+19	3	2018-06-19 20:44:43.573867	Slots - 3º slot adicionado	D
+20	3	2018-06-19 20:44:43.584852	Slots - 4º slot adicionado	D
+21	4	2018-06-19 20:44:43.595999	Slots - 1º slot adicionado	D
+22	4	2018-06-19 20:44:43.607117	Slots - 2º slot adicionado	D
+23	4	2018-06-19 20:44:43.618227	Slots - 3º slot adicionado	D
+24	4	2018-06-19 20:44:43.629285	Slots - 4º slot adicionado	D
+25	1	2018-06-19 20:44:43.640417	Slots - 1º slot ativado	D
+26	1	2018-06-19 20:44:43.651514	Slots - 2º slot ativado	D
+27	1	2018-06-19 20:44:43.662627	Slots - 3º slot ativado	D
+28	1	2018-06-19 20:44:43.67375	Slots - 4º slot ativado	D
+29	2	2018-06-19 20:44:43.684906	Slots - 1º slot ativado	D
+30	2	2018-06-19 20:44:43.695938	Slots - 2º slot ativado	D
+31	2	2018-06-19 20:44:43.706926	Slots - 3º slot ativado	D
+32	2	2018-06-19 20:44:43.718351	Slots - 4º slot ativado	D
+33	3	2018-06-19 20:44:43.729319	Slots - 1º slot ativado	D
+34	3	2018-06-19 20:44:43.740694	Slots - 2º slot ativado	D
+35	3	2018-06-19 20:44:43.751481	Slots - 3º slot ativado	D
+36	3	2018-06-19 20:44:43.763098	Slots - 4º slot ativado	D
+37	4	2018-06-19 20:44:43.774198	Slots - 1º slot ativado	D
+38	4	2018-06-19 20:44:43.785147	Slots - 2º slot ativado	D
+39	4	2018-06-19 20:44:43.796278	Slots - 3º slot ativado	D
+40	4	2018-06-19 20:44:43.807373	Slots - 4º slot ativado	D
+41	1	2018-06-19 20:44:43.907345	Vai de Bike - Bicicleta Eugena vinculada ao sistema no 1º slot	L
+42	1	2018-06-19 20:44:43.91846	Vai de Bike - Bicicleta Leanne vinculada ao sistema no 2º slot	L
+43	2	2018-06-19 20:44:43.929746	Vai de Bike - Bicicleta Tawana vinculada ao sistema no 1º slot	L
+44	2	2018-06-19 20:44:43.940652	Vai de Bike - Bicicleta Bernardina vinculada ao sistema no 2º slot	L
+45	3	2018-06-19 20:44:43.951864	Vai de Bike - Bicicleta Loraine vinculada ao sistema no 1º slot	L
+46	3	2018-06-19 20:44:43.962944	Vai de Bike - Bicicleta Robena vinculada ao sistema no 2º slot	L
+47	4	2018-06-19 20:44:43.974062	Vai de Bike - Bicicleta Zandra vinculada ao sistema no 1º slot	L
+49	1	2018-06-19 20:46:33.850606	Vai de bike - Bicicleta Eugena retirada do 1º slot pelo usuário r2	L
+50	1	2018-06-19 20:52:48.783567	Vai de bike - Bicicleta Eugena entregue no 1º slot pelo usuário r2	L
+51	1	2018-06-19 21:03:22.318664	Vai de bike - Bicicleta Eugena retirada do 1º slot pelo usuário r2	L
+52	1	2018-06-19 21:04:32.750095	Vai de bike - Bicicleta Eugena entregue no 1º slot pelo usuário r2	L
+\.
+
+
+--
+-- Name: station_history_idlog_seq; Type: SEQUENCE SET; Schema: public; Owner: silva
+--
+
+SELECT pg_catalog.setval('public.station_history_idlog_seq', 52, true);
+
+
+--
+-- Data for Name: station_slot; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.station_slot (idstation, slot, state, bike, regdate) FROM stdin;
+1	3	t	f	2018-06-19 20:44:43.484597
+1	4	t	f	2018-06-19 20:44:43.495941
+2	3	t	f	2018-06-19 20:44:43.52926
+2	4	t	f	2018-06-19 20:44:43.540504
+3	3	t	f	2018-06-19 20:44:43.573867
+3	4	t	f	2018-06-19 20:44:43.584852
+4	2	t	f	2018-06-19 20:44:43.607117
+4	3	t	f	2018-06-19 20:44:43.618227
+4	4	t	f	2018-06-19 20:44:43.629285
+1	2	t	t	2018-06-19 20:44:43.473498
+2	1	t	t	2018-06-19 20:44:43.507165
+2	2	t	t	2018-06-19 20:44:43.518098
+3	1	t	t	2018-06-19 20:44:43.551603
+3	2	t	t	2018-06-19 20:44:43.562644
+4	1	t	t	2018-06-19 20:44:43.595999
+1	1	t	t	2018-06-19 20:44:43.462514
+\.
+
+
+--
+-- Data for Name: vdb_log; Type: TABLE DATA; Schema: public; Owner: silva
+--
+
+COPY public.vdb_log (idlog, idcli, name_cli, idbike, name_bk, idstationout, name_stout, slotout, idstationin, name_stin, slotin, state, regoutdate, regindate) FROM stdin;
+2	1	r2	1	Eugena	1	Aliada	1	1	Aliada	1	t	2018-06-19 20:46:33.850606	2018-06-19 20:52:48.783567
+3	1	r2	1	Eugena	1	Aliada	1	1	Aliada	1	t	2018-06-19 21:03:22.318664	2018-06-19 21:04:32.750095
+\.
+
+
+--
+-- Name: vdb_log_idlog_seq; Type: SEQUENCE SET; Schema: public; Owner: silva
+--
+
+SELECT pg_catalog.setval('public.vdb_log_idlog_seq', 3, true);
+
+
+--
+-- Name: bike_history_pkey; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike_history
+    ADD CONSTRAINT bike_history_pkey PRIMARY KEY (idlog);
+
+
+--
+-- Name: bike_name_key; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike
+    ADD CONSTRAINT bike_name_key UNIQUE (name);
+
+
+--
+-- Name: bike_pkey; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike
+    ADD CONSTRAINT bike_pkey PRIMARY KEY (idbike);
+
+
+--
+-- Name: bike_station_name_key; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike_station
+    ADD CONSTRAINT bike_station_name_key UNIQUE (name);
+
+
+--
+-- Name: bike_station_pkey; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike_station
+    ADD CONSTRAINT bike_station_pkey PRIMARY KEY (idstation);
+
+
+--
+-- Name: client_history_pkey; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.client_history
+    ADD CONSTRAINT client_history_pkey PRIMARY KEY (idlog);
+
+
+--
+-- Name: client_vdb_pkey; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.client_vdb
+    ADD CONSTRAINT client_vdb_pkey PRIMARY KEY (idcli);
+
+
+--
+-- Name: client_vdb_username_key; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.client_vdb
+    ADD CONSTRAINT client_vdb_username_key UNIQUE (username);
+
+
+--
+-- Name: station_history_pkey; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.station_history
+    ADD CONSTRAINT station_history_pkey PRIMARY KEY (idlog);
+
+
+--
+-- Name: vdb_log_pkey; Type: CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.vdb_log
+    ADD CONSTRAINT vdb_log_pkey PRIMARY KEY (idlog);
+
+
+--
+-- Name: bike_log; Type: TRIGGER; Schema: public; Owner: silva
+--
+
+CREATE TRIGGER bike_log AFTER INSERT OR UPDATE ON public.bike FOR EACH ROW EXECUTE PROCEDURE public.bikereg();
+
+
+--
+-- Name: client_log; Type: TRIGGER; Schema: public; Owner: silva
+--
+
+CREATE TRIGGER client_log AFTER INSERT OR UPDATE ON public.client_vdb FOR EACH ROW EXECUTE PROCEDURE public.clientreg();
+
+
+--
+-- Name: info_log_cli; Type: TRIGGER; Schema: public; Owner: silva
+--
+
+CREATE TRIGGER info_log_cli AFTER INSERT OR UPDATE ON public.info_client FOR EACH ROW EXECUTE PROCEDURE public.inforegcli();
+
+
+--
+-- Name: log_vdb; Type: TRIGGER; Schema: public; Owner: silva
+--
+
+CREATE TRIGGER log_vdb AFTER INSERT OR UPDATE ON public.vdb_log FOR EACH ROW EXECUTE PROCEDURE public.logreg();
+
+
+--
+-- Name: slot_log; Type: TRIGGER; Schema: public; Owner: silva
+--
+
+CREATE TRIGGER slot_log AFTER INSERT OR DELETE OR UPDATE ON public.station_slot FOR EACH ROW EXECUTE PROCEDURE public.slotreg();
+
+
+--
+-- Name: station_log; Type: TRIGGER; Schema: public; Owner: silva
+--
+
+CREATE TRIGGER station_log AFTER INSERT OR UPDATE ON public.bike_station FOR EACH ROW EXECUTE PROCEDURE public.stationreg();
+
+
+--
+-- Name: bike_history_idbike_fkey; Type: FK CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike_history
+    ADD CONSTRAINT bike_history_idbike_fkey FOREIGN KEY (idbike) REFERENCES public.bike(idbike) ON DELETE CASCADE;
+
+
+--
+-- Name: bike_idstation_fkey; Type: FK CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.bike
+    ADD CONSTRAINT bike_idstation_fkey FOREIGN KEY (idstation) REFERENCES public.bike_station(idstation);
+
+
+--
+-- Name: client_history_idcli_fkey; Type: FK CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.client_history
+    ADD CONSTRAINT client_history_idcli_fkey FOREIGN KEY (idcli) REFERENCES public.client_vdb(idcli) ON DELETE CASCADE;
+
+
+--
+-- Name: info_client_idcli_fkey; Type: FK CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.info_client
+    ADD CONSTRAINT info_client_idcli_fkey FOREIGN KEY (idcli) REFERENCES public.client_vdb(idcli) ON DELETE CASCADE;
+
+
+--
+-- Name: station_history_idstation_fkey; Type: FK CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.station_history
+    ADD CONSTRAINT station_history_idstation_fkey FOREIGN KEY (idstation) REFERENCES public.bike_station(idstation) ON DELETE CASCADE;
+
+
+--
+-- Name: station_slot_idstation_fkey; Type: FK CONSTRAINT; Schema: public; Owner: silva
+--
+
+ALTER TABLE ONLY public.station_slot
+    ADD CONSTRAINT station_slot_idstation_fkey FOREIGN KEY (idstation) REFERENCES public.bike_station(idstation) ON DELETE CASCADE;
+
+
+--
+-- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
+--
+
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA public FROM postgres;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO PUBLIC;
+
+
+--
+-- Name: TABLE bike; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.bike FROM PUBLIC;
+REVOKE ALL ON TABLE public.bike FROM silva;
+GRANT ALL ON TABLE public.bike TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.bike TO teste0_bd2;
+
+
+--
+-- Name: TABLE client_vdb; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.client_vdb FROM PUBLIC;
+REVOKE ALL ON TABLE public.client_vdb FROM silva;
+GRANT ALL ON TABLE public.client_vdb TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.client_vdb TO teste0_bd2;
+
+
+--
+-- Name: TABLE bike_history; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.bike_history FROM PUBLIC;
+REVOKE ALL ON TABLE public.bike_history FROM silva;
+GRANT ALL ON TABLE public.bike_history TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.bike_history TO teste0_bd2;
+
+
+--
+-- Name: TABLE client_history; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.client_history FROM PUBLIC;
+REVOKE ALL ON TABLE public.client_history FROM silva;
+GRANT ALL ON TABLE public.client_history TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.client_history TO teste0_bd2;
+
+
+--
+-- Name: TABLE station_history; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.station_history FROM PUBLIC;
+REVOKE ALL ON TABLE public.station_history FROM silva;
+GRANT ALL ON TABLE public.station_history TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.station_history TO teste0_bd2;
+
+
+--
+-- Name: TABLE info_client; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.info_client FROM PUBLIC;
+REVOKE ALL ON TABLE public.info_client FROM silva;
+GRANT ALL ON TABLE public.info_client TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.info_client TO teste0_bd2;
+
+
+--
+-- Name: TABLE station_slot; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.station_slot FROM PUBLIC;
+REVOKE ALL ON TABLE public.station_slot FROM silva;
+GRANT ALL ON TABLE public.station_slot TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.station_slot TO teste0_bd2;
+
+
+--
+-- Name: TABLE bike_station; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.bike_station FROM PUBLIC;
+REVOKE ALL ON TABLE public.bike_station FROM silva;
+GRANT ALL ON TABLE public.bike_station TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.bike_station TO teste0_bd2;
+
+
+--
+-- Name: TABLE vdb_log; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON TABLE public.vdb_log FROM PUBLIC;
+REVOKE ALL ON TABLE public.vdb_log FROM silva;
+GRANT ALL ON TABLE public.vdb_log TO silva;
+GRANT SELECT,INSERT,UPDATE ON TABLE public.vdb_log TO teste0_bd2;
+
+
+--
+-- Name: SEQUENCE bike_history_idlog_seq; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON SEQUENCE public.bike_history_idlog_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.bike_history_idlog_seq FROM silva;
+GRANT ALL ON SEQUENCE public.bike_history_idlog_seq TO silva;
+GRANT USAGE ON SEQUENCE public.bike_history_idlog_seq TO teste0_bd2;
+
+
+--
+-- Name: SEQUENCE bike_idbike_seq; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON SEQUENCE public.bike_idbike_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.bike_idbike_seq FROM silva;
+GRANT ALL ON SEQUENCE public.bike_idbike_seq TO silva;
+GRANT USAGE ON SEQUENCE public.bike_idbike_seq TO teste0_bd2;
+
+
+--
+-- Name: SEQUENCE bike_station_idstation_seq; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON SEQUENCE public.bike_station_idstation_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.bike_station_idstation_seq FROM silva;
+GRANT ALL ON SEQUENCE public.bike_station_idstation_seq TO silva;
+GRANT USAGE ON SEQUENCE public.bike_station_idstation_seq TO teste0_bd2;
+
+
+--
+-- Name: SEQUENCE client_history_idlog_seq; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON SEQUENCE public.client_history_idlog_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.client_history_idlog_seq FROM silva;
+GRANT ALL ON SEQUENCE public.client_history_idlog_seq TO silva;
+GRANT USAGE ON SEQUENCE public.client_history_idlog_seq TO teste0_bd2;
+
+
+--
+-- Name: SEQUENCE client_vdb_idcli_seq; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON SEQUENCE public.client_vdb_idcli_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.client_vdb_idcli_seq FROM silva;
+GRANT ALL ON SEQUENCE public.client_vdb_idcli_seq TO silva;
+GRANT USAGE ON SEQUENCE public.client_vdb_idcli_seq TO teste0_bd2;
+
+
+--
+-- Name: SEQUENCE station_history_idlog_seq; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON SEQUENCE public.station_history_idlog_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.station_history_idlog_seq FROM silva;
+GRANT ALL ON SEQUENCE public.station_history_idlog_seq TO silva;
+GRANT USAGE ON SEQUENCE public.station_history_idlog_seq TO teste0_bd2;
+
+
+--
+-- Name: SEQUENCE vdb_log_idlog_seq; Type: ACL; Schema: public; Owner: silva
+--
+
+REVOKE ALL ON SEQUENCE public.vdb_log_idlog_seq FROM PUBLIC;
+REVOKE ALL ON SEQUENCE public.vdb_log_idlog_seq FROM silva;
+GRANT ALL ON SEQUENCE public.vdb_log_idlog_seq TO silva;
+GRANT USAGE ON SEQUENCE public.vdb_log_idlog_seq TO teste0_bd2;
+
+
+--
+-- PostgreSQL database dump complete
+--
+
