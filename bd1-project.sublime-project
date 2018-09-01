@@ -1,0 +1,29 @@
+{
+    "folders":
+    [
+        {
+            "path": "."
+        }
+    ],
+    "build_systems":
+    [
+        {
+            "name": "postgres_bd1_txt",
+            "cmd": ["psql", "-d", "ufersa_vdb_1","-f", "$file", "-o", "../results.txt"],
+            "working_dir" : "$file_path",
+            "selector": "source.postgresql"
+        },
+        {
+            "name": "postgres_bd1_ufvdb",
+            "cmd": ["psql", "-d", "ufersa_vdb_1","-f", "$file"],
+            "working_dir" : "$file_path",
+            "selector": "source.postgresql"
+        },
+        {
+            "name": "postgres_bd",
+            "cmd": ["psql", "-f", "$file"],
+            "working_dir" : "$file_path",
+            "selector": "source.postgresql"
+        }
+    ]
+}
