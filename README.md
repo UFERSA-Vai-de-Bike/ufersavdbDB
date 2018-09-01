@@ -16,7 +16,7 @@ CREATE DATABASE ufersa_vdb_1;
 ```
 ou
 ```bash
-sudo -u postgres createdb ufersa_vdb_1
+$ sudo -u postgres createdb ufersa_vdb_1
 ```
 >O banco utilizado (**neste branch**) tem como nome *ufersa_vdb_1*. Não precisa ser este nome mas atente-se: **a [API](https://github.com/UFERSA-Vai-de-Bike/ufersavdbAPI/blob/master/db/connector.js) precisar saber o que for determinado. Cuidado ao fazer modificações!** Até o momento este é **o único branch** ao qual a [API do UFERSA Vai de Bike](https://github.com/UFERSA-Vai-de-Bike/ufersavdbAPI) **tem suporte**.
 
