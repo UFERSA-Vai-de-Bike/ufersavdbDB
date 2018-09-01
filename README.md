@@ -57,3 +57,4 @@ psql=# grant all privileges on database ufersa_vdb_2 to ufersa_vdb;
 
 - [Criando um usuário e dando acesso no PostGreSQL](https://medium.com/coding-blocks/creating-user-database-and-adding-access-on-postgresql-8bfcd2f4a91e)
 - [Peer authentication failed](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
+- [Permission denied](https://stackoverflow.com/questions/13497352/error-permission-denied-for-relation-tablename-on-postgres-while-trying-a-selec)
