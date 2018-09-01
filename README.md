@@ -42,17 +42,18 @@ Dentro da pasta [*queries*](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/tr
 #### Usuário e permissões (para a [API](https://github.com/UFERSA-Vai-de-Bike/ufersavdbAPI/blob/master/db/connector.js))
 ```sql
 CREATE USER ufersa_vdb WITH ENCRYPTED PASSWORD 'bikesharing18';
-GRANT ALL PRIVILEGES ON DATABASE ufersa_vdb_1 TO ufersa_vdb;
-```
-ou
-```bash
-$ sudo -u postgres createuser ufersa_vdb
-$ sudo -u postgres psql
-psql=# alter user ufersa_vdb with encrypted password 'bikesharing18';
-psql=# grant all privileges on database ufersa_vdb_1 to ufersa_vdb;
+GRANT USAGE ON SCHEMA public to ufersa_vdb;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO ufersa_vdb;
+GRANT CONNECT ON DATABASE ufersa_vdb_1 to ufersa_vdb;
+\c ufersa_vdb_1 -- O CÓDIGO ABAIXO DEVE SER EXECUTADO DENTRO DO DATABASE EM QUESTÃO
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ufersa_vdb; -- Isto garante privilegios em futuras tabelas na base "ufersa_vdb_1"
+GRANT USAGE ON SCHEMA public to ufersa_vdb; 
+GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO ufersa_vdb;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO ufersa_vdb;
 ```
 
 #### Referências
 
 - [Criando um usuário e dando acesso no PostGreSQL]([manual](https://medium.com/coding-blocks/creating-user-database-and-adding-access-on-postgresql-8bfcd2f4a91e))
 - [Peer authentication failed](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
+- [Permission denied](https://stackoverflow.com/questions/13497352/error-permission-denied-for-relation-tablename-on-postgres-while-trying-a-selec)
