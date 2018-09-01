@@ -32,7 +32,7 @@ Dentro da pasta [*queries*](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/tr
 
 >A partir do 1 cada arquivo tem um povoamento de tabelas. Você decide utilizar ou não.
 
->No repositório vai um [arquivo](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/blob/master/bd2-project.sublime-project) referentes a configuração do projeto no sublime, configure de acordo com o seu computador e de quebra utilize o build system que criei.
+>No repositório vai um [arquivo](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/blob/bd2/bd2-project.sublime-project) referentes a configuração do projeto no sublime, configure de acordo com o seu computador e de quebra utilize o build system que criei.
 
 - Para backup:
 ```bash $ pg_dump ufersa_vdb_2 > nome_do_backup```
@@ -47,9 +47,9 @@ GRANT ALL PRIVILEGES ON DATABASE ufersa_vdb_2 TO ufersa_vdb;
 ```
 ou
 ```bash
-$ sudo -u postgres createuser <username>
+$ sudo -u postgres createuser ufersa_vdb
 $ sudo -u postgres psql
-psql=# alter user <username> with encrypted password '<password>';
-psql=# grant all privileges on database <dbname> to <username> ;
+psql=# alter user ufersa_vdb with encrypted password 'bikesharing18';
+psql=# grant all privileges on database ufersa_vdb_2 to ufersa_vdb;
 ```
 >Quaisquer dúvidas siga o [manual](https://medium.com/coding-blocks/creating-user-database-and-adding-access-on-postgresql-8bfcd2f4a91e)
