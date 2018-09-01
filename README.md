@@ -8,7 +8,7 @@ Este manual tem como propósito te ensinar a configurar uma máquina para que po
 
 Quaisquer dúvidas falar com o autor:
 
-Arthur Aleksandro, aka @aretw0. Email: arthursilva.dev@gmail.com
+Arthur Aleksandro, aka [@aretw0](https://github.com/aretw0). Email: arthursilva.dev@gmail.com
 
 =================================================
 Utilizaremos:
