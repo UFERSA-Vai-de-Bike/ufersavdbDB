@@ -30,7 +30,7 @@ Dentro da pasta [*queries*](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/tr
 3. client.sql
 4. in-out.sql
 
->A partir do 1 cada arquivo tem um povoamento de tabelas. Você decide utilizar ou não.
+>A partir do 1 cada arquivo tem no final um povoamento de tabelas. Você decide utilizar ou não.
 
 >No repositório vai um [arquivo](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/blob/bd2/bd2-project.sublime-project) referentes a configuração do projeto no sublime, configure de acordo com o seu computador e de quebra utilize o build system que criei.
 
