@@ -5,23 +5,24 @@ Olá, seja bem vindo.
 
 Este manual tem como propósito te ensinar a configurar uma máquina para que possa executar o banco de dados do sistema UFERSA Vai de Bike.
 
-Quaisquer dúvidas falar com o autor:
+Autor: Arthur Aleksandro, aka [@aretw0](https://github.com/aretw0), arthursilva.dev@gmail.com.
 
-Arthur Aleksandro, aka [@aretw0](https://github.com/aretw0). Email: arthursilva.dev@gmail.com
+Este projeto foi feito utilizando **PostGreSQL**
 
-Utilizaremos:
+#### Banco
+```sql
+DROP DATABASE IF EXISTS ufersa_vdb_2;
+CREATE DATABASE ufersa_vdb_2;
+```
+ou
+```bash
+sudo -u postgres createdb ufersa_vdb_2
+```
+>O banco utilizado (**neste branch**) tem como nome *ufersa_vdb_2*. Não precisa ser este nome mas atente-se: **a [API](https://github.com/UFERSA-Vai-de-Bike/ufersavdbAPI/blob/master/db/connector.js) precisar saber o que for determinado**. Entretanto **até o momento a [API do UFERSA Vai de Bike](https://github.com/UFERSA-Vai-de-Bike/ufersavdbAPI) não tem suporte as modificações feitas neste branch!**
 
-1. postGreSQL
+Dentro da pasta [*queries*](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/tree/bd2/queries) se encontram os arquivos que instanciam as tabelas utilizado pelo sistema.
 
-Dentro da pasta 'queries' se encontram os arquivos que instanciam as tabelas utilizado pelo sistema.
-
-O banco utilizado (**neste branch**) tem como nome *ufersa_vdb_2*. 
-Não precisa ser este mas atente-se: **a [API](https://github.com/UFERSA-Vai-de-Bike/ufersavdbAPI/blob/master/db/connector.js) precisar saber os nomes (banco e usuário) que forem determinados**.
-Apenas as tabelas, funções e trigger's que importam.
-
-No final de cada arquivo tem um povoamento de tabelas. Você decide utilizar ou não.
-
-Execute nessa ordem:
+#### Execute nessa ordem:
 
 0. init.sql
 1. station.sql
@@ -29,10 +30,26 @@ Execute nessa ordem:
 3. client.sql
 4. in-out.sql
 
-Obs.: No repositório vai alguns arquivos referentes a configuração do projeto no sublime, configure os caminhos de acordo com o seu computador e de quebra utilize o build system que eu criei.
+>A partir do 1 cada arquivo tem um povoamento de tabelas. Você decide utilizar ou não.
 
-Para backup:
-```$ pg_dump ufersa_vdb_2 > nome_do_backup```
+>No repositório vai um [arquivo](https://github.com/UFERSA-Vai-de-Bike/ufersavdbDB/blob/master/bd2-project.sublime-project) referentes a configuração do projeto no sublime, configure de acordo com o seu computador e de quebra utilize o build system que criei.
 
-Para restaurar:
-```$ psql ufersa_vdb_2 < nome_do_backup```
+- Para backup:
+```bash $ pg_dump ufersa_vdb_2 > nome_do_backup```
+
+- Para restaurar:
+```bash $ psql ufersa_vdb_2 < nome_do_backup```
+
+#### Usuário e permissões (para a [API](https://github.com/UFERSA-Vai-de-Bike/ufersavdbAPI/blob/master/db/connector.js))
+```sql
+CREATE USER ufersa_vdb WITH ENCRYPTED PASSWORD 'bikesharing18';
+GRANT ALL PRIVILEGES ON DATABASE ufersa_vdb_2 TO ufersa_vdb;
+```
+ou
+```bash
+$ sudo -u postgres createuser <username>
+$ sudo -u postgres psql
+psql=# alter user <username> with encrypted password '<password>';
+psql=# grant all privileges on database <dbname> to <username> ;
+```
+>Quaisquer dúvidas siga o [manual](https://medium.com/coding-blocks/creating-user-database-and-adding-access-on-postgresql-8bfcd2f4a91e)
