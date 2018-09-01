@@ -51,4 +51,8 @@ $ sudo -u postgres psql
 psql=# alter user ufersa_vdb with encrypted password 'bikesharing18';
 psql=# grant all privileges on database ufersa_vdb_1 to ufersa_vdb;
 ```
->Quaisquer dúvidas siga o [manual](https://medium.com/coding-blocks/creating-user-database-and-adding-access-on-postgresql-8bfcd2f4a91e)
+
+#### Referências
+
+- [Criando um usuário e dando acesso no PostGreSQL]([manual](https://medium.com/coding-blocks/creating-user-database-and-adding-access-on-postgresql-8bfcd2f4a91e))
+- [Peer authentication failed](https://stackoverflow.com/questions/18664074/getting-error-peer-authentication-failed-for-user-postgres-when-trying-to-ge)
