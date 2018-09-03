@@ -186,7 +186,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
 DROP FUNCTION IF EXISTS add_history_station(station_history.idStation%TYPE,station_history.info%TYPE,CHAR) CASCADE;
 CREATE OR REPLACE FUNCTION add_history_station(station_history.idStation%TYPE,station_history.info%TYPE,CHAR)
 RETURNS VOID AS $$
@@ -291,10 +290,10 @@ FOR EACH ROW EXECUTE PROCEDURE slotReg();
 
 -- BIKE STATION
 
-SELECT createBikeStation('Aliada','xEqGAG',-5.206798,-37.323969);
-SELECT createBikeStation('Olimpia','hbHevxu',-5.206798,-37.323969);
-SELECT createBikeStation('Sang','hdCdj0ae',-5.206798,-37.323969);
-SELECT createBikeStation('Milda','e8FADM4nzxf',-5.206798,-37.323969);
+SELECT createBikeStation('Aliada','xEqGAG',-5.204370,-37.323554);
+SELECT createBikeStation('Olimpia','hbHevxu',-5.207059, -37.323857);
+SELECT createBikeStation('Sang','hdCdj0ae',-5.203151, -37.327629);
+SELECT createBikeStation('Milda','e8FADM4nzxf',-5.201565, -37.325744);
 
 SELECT changeStationState(1);
 SELECT changeStationState(2);

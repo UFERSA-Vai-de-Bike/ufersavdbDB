@@ -20,8 +20,8 @@ CREATE TABLE bike_history (
 	idLog SERIAL PRIMARY KEY,
 	idBike INT REFERENCES bike(idBike) ON DELETE CASCADE,
 	regDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-	info VARCHAR(200),
-	label CHAR DEFAULT 'U'
+	info VARCHAR(300),
+	label CHAR DEFAULT 'U' -- U - UNKNOW / D - DADOS / L - DEV-EMP
 );
 
 
@@ -129,9 +129,16 @@ $$ LANGUAGE plpgsql;
 
 DROP FUNCTION IF EXISTS getBikes() CASCADE;
 CREATE OR REPLACE FUNCTION getBikes()
-RETURNS TABLE(idBike bike.idBike%TYPE,name bike.name%TYPE,state bike.state%TYPE,onRide bike.onRide%TYPE) AS $$
+RETURNS SETOF bike AS $$
 BEGIN
-	RETURN QUERY SELECT bk.idBike,bk.name,bk.state,bk.onRide FROM bike as bk;
+	RETURN QUERY SELECT * FROM bike;
+END;
+$$ LANGUAGE plpgsql;
+DROP FUNCTION IF EXISTS getOnRideBikes() CASCADE;
+CREATE OR REPLACE FUNCTION getOnRideBikes()
+RETURNS SETOF bike AS $$
+BEGIN
+	RETURN QUERY SELECT * FROM bike AS bk WHERE bk.state = TRUE AND bk.onRide = TRUE;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -221,17 +228,18 @@ CREATE OR REPLACE FUNCTION bikeReg() -- nome da função
 RETURNS TRIGGER AS $bikeReg$
 DECLARE 
 	namest_old bike_station.name%TYPE;
-	namest_new bike_station.name%TYPE;
+	st_new bike_station%ROWTYPE;
 BEGIN
 	IF (TG_OP = 'INSERT') THEN
 		PERFORM add_history_bike(NEW.idBike,'Its Alive! - Bicicleta criada','D'); --ação
 		RETURN NEW;
 	ELSEIF (TG_OP = 'UPDATE') THEN
 		SELECT name INTO namest_old FROM bike_station WHERE idStation = OLD.idStation;
-		SELECT name INTO namest_new FROM bike_station WHERE idStation = NEW.idStation;
+		SELECT * INTO st_new FROM bike_station WHERE idStation = NEW.idStation;
 		IF (OLD.idStation is NULL) AND (NEW.idStation IS NOT NULL) THEN
-			PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Vinculada ao sistema na estação ' || namest_new,'L');
+			PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Vinculada ao sistema na estação ' || st_new.name,'L');
 			PERFORM add_history_station(NEW.idStation,'Vai de Bike - Bicicleta ' || OLD.name ||' vinculada ao sistema no ' || NEW.slot || 'º slot','L');
+			PERFORM upd_bike_pos(OLD.idBike,st_new.lat,st_new.lon);
 		ELSEIF (OLD.idStation is NOT NULL) AND (NEW.idStation is NULL) THEN
 			IF (OLD.onRide = FALSE) AND (NEW.onRide IS NULL) AND (NEW.slot IS NULL) THEN
 				PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Desvinculada do sistema no '|| OLD.slot || 'º slot da estação ' || namest_old,'L');
@@ -241,7 +249,8 @@ BEGIN
 				PERFORM add_history_station(OLD.idStation,'Vai de Bike - Bicicleta ' || OLD.name ||' desvinculada do sistema após sair do ' || OLD.slot || 'º slot','L');
  			END IF;
  		ELSEIF OLD.idStation <> NEW.idStation THEN
-			PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Mudança do '|| OLD.slot||'º da estação ' || namest_old ||' para '|| NEW.slot||'º slot da estação ' || namest_new,'L');
+			PERFORM add_history_bike(OLD.idBike,'Vai de Bike - Mudança do '|| OLD.slot||'º da estação ' || namest_old ||' para '|| NEW.slot||'º slot da estação ' || st_new.name,'L');
+			PERFORM upd_bike_pos(OLD.idBike,st_new.lat,st_new.lon);
 		END IF;
 		IF (OLD.state <> NEW.state) AND (NEW.state IS NOT NULL) THEN
 			IF (NEW.state) THEN
@@ -252,6 +261,9 @@ BEGIN
 		END IF;
 		IF (OLD.name <> NEW.name) AND (OLD.name IS NOT NULL) AND (NEW.name IS NOT NULL) THEN
 			PERFORM add_history_bike(OLD.idBike,'Informações - Nome alterado de ' || OLD.name || ' para ' || NEW.name,'D');
+		END IF;
+		IF (OLD.lat <> NEW.lat) OR (OLD.lon <> NEW.lon) THEN
+			PERFORM add_history_bike(OLD.idBike,'Informações - Posição alterada de [' || OLD.lat || ','|| OLD.lon ||' para [' || NEW.lat || ',' || NEW.lon || ']','D');
 		END IF;
 		RETURN NEW;
 	END IF;
