@@ -354,10 +354,10 @@ SELECT createClient(1,'armaria','qqussi44');
 -- SELECT * FROM getInfosCli();
 -- SELECT * FROM getInfoCli(idCli);
 
-SELECT upd_info_cli(1,'Filonai Genot','fulc@treste.com','66665555','ouvinte','M','02-05-1991');
+SELECT upd_info_cli(1,'Filonai Genot','fulc@teste.com','66665555','ouvinte','M','02-05-1991');
 SELECT upd_info_cli(2,'Finn Genot','finnlc@teste.com','66665555','heroi','M','02-05-1991');
 SELECT upd_info_cli(3,'Fanho Lance','fanho@teste.com','65467855','outsider','M','02-07-1999');
-SELECT upd_info_cli(4,'Arere Umoki','aretw0@teste2.com','99768684','insider','M','25-05-1994');
+SELECT upd_info_cli(4,'Arere Umoki','aretw0@teste2.com','99768684','insider','M','05-25-1994');
 SELECT upd_info_cli(5,'Blossom Mahaley','koil@cabot.co.uk','30777804','toastmastery','M','2012-05-26');
 SELECT upd_info_cli(6,'Debbie Willhelm','aldermanlike@histamine.org','68119266','thrips','F','2016-06-17');
 SELECT upd_info_cli(7,'Shalanda Battenhouse','gastroscope@unenkindled.net','71110539','acuesthesia','F','2016-04-18');
